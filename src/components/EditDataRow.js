@@ -10,9 +10,9 @@ const EditDataRow = ({ idData }) => {
     setBreakdown({ ...saveData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (data) => {
+  const handleSubmit = async(data) => {
     
-    axios.put(`/editdata/${data}`, saveData);
+    await axios.put(`https://data-api-d6lk.onrender.com/editdata/${data}`, saveData);
   };
 
   return (
