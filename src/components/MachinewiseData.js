@@ -7,7 +7,7 @@ const MachinewiseData = (props) => {
  const [mongodata, getData] = useState([]);
 
     const fetchData=async()=>{
-    const response= await axios.get(`https://data-api-d6lk.onrender.com/machineroute/${props.number}`)
+    const response= await axios.get(`/machineroute/${props.number}`)
     getData(response.data)
     console.log(mongodata);
     }
