@@ -1,8 +1,9 @@
 import React from 'react'
 
 const Home = () => {
-  
-    window.location.replace('https://data-api-d6lk.onrender.com');
+  return (
+    <div>Home</div>
+  )
 }
 
 export default Home
