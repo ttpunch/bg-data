@@ -12,7 +12,7 @@ const EditDataRow = ({ idData }) => {
 
   const handleSubmit = (data) => {
     
-    axios.put(`/editdata/${data}`, saveData);
+    axios.put(`https://data-api-d6lk.onrender.com/editdata/${data}`, saveData);
   };
 
   return (
