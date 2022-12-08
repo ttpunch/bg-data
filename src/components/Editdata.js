@@ -19,7 +19,7 @@ const Editdata = () => {
  }
 
   useEffect(() => {
-    axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
+    axios.get("/machinedata").then((res) => {
       getData(res.data);
       console.log(res.data)
     });
