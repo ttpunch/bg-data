@@ -7,7 +7,7 @@ const TotalData = () => {
 
   useEffect(() => {
     
-     axios.get("/machinedata").then((res) => {
+     axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
       getData(res.data);
     });
   }, );
