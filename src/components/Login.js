@@ -17,14 +17,13 @@ const Login = () => {
     
       const handleLogin = (e) => {
         setLogin({ ...login, [e.target.name]: e.target.value });
-        console.log(e.target.value);
+        
         
       };
   
       
       const handleSubmit = (e) => {
         e.preventDefault();
-        console.log(login.password) 
         setLoginpass({...login})
         sessionStorage.setItem("islogin",true)
         // setTimeout(()=>{
