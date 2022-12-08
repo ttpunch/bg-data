@@ -6,8 +6,8 @@ const TotalData = () => {
   const [mongodata, getData] = useState([]);
 
   useEffect(() => {
-    const url="https://data-api-d6lk.onrender.com/"
-     axios.get(url+"/machinedata").then((res) => {
+    
+     axios.get("/machinedata").then((res) => {
       getData(res.data);
     });
   }, );
