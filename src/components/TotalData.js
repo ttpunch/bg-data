@@ -10,7 +10,7 @@ const TotalData = () => {
      axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
       getData(res.data);
     });
-  }, );
+  },[]);
   return (
    
     <div className="mt-2 ml-64 mr-60 ">    
