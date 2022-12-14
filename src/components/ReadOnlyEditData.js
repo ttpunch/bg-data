@@ -1,6 +1,6 @@
 import React from "react";
 
-const ReadOnlyEditData = ({ data, editData }) => {
+const ReadOnlyEditData = ({ data, editData,deleteData }) => {
   return (
     <>
       <tr className="border text-xs whitespace-wrap border-slate-600 border-collapse break-normal">
@@ -22,7 +22,7 @@ const ReadOnlyEditData = ({ data, editData }) => {
             onClick={(e) => {
               editData(e, data);
             }}
-            className="bg-slate-400  px-2 py-1 rounded"
+            className="bg-slate-400  px-2 py-1 rounded cursor-pointer"
           >
             Edit
           </button>
@@ -30,9 +30,9 @@ const ReadOnlyEditData = ({ data, editData }) => {
         <td>
           <button
             onClick={(e) => {
-              editData(e, data);
+              deleteData(e, data);
             }}
-            className="bg-slate-400  px-2 py-1 rounded"
+            className="bg-slate-400  px-2 py-1 rounded cursor-pointer"
           >
             Delete
           </button>
