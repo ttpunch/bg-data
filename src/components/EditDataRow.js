@@ -43,12 +43,14 @@ const EditDataRow = ({ idData }) => {
           save
         </button>
         
-        <button onClick={handleDelete(idData)}
+        
+      </form>
+
+      <button onClick={handleDelete(idData)}
           className="bg-slate-400 ml-10 mt-2 mb-2 rounded-lg p-1"
          >
           Delete
       </button>
-      </form>
 
       
     </div>
