@@ -18,6 +18,14 @@ const Editdata = () => {
 
  }
 
+ const handleDeleteData=(e,data)=>{
+  e.preventDefault();  
+  setEditEnable(data._id)
+  console.log(data._id)
+
+ }
+
+
   useEffect(() => {
     axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
       getData(res.data);
@@ -44,7 +52,7 @@ const Editdata = () => {
       <tbody>
         {mongodata.map((res) => (     
                <Fragment>  
-                 {editenable===res._id ? <EditDataRow  data={res} idData={res._id}  /> : <ReadOnlyEditData  editData={handleEditableClick} data={res}/>}
+                 {editenable===res._id ? <EditDataRow  data={res} idData={res._id} delidData={res._id}   /> : <ReadOnlyEditData  deleteData={handleDeleteData} editData={handleEditableClick} data={res}/>}
                </Fragment> 
             
         ))}
