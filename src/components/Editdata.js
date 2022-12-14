@@ -37,6 +37,7 @@ const Editdata = () => {
               <th className="border border-slate-400 border-collapse px-4 py-2 break-normal text-center" >Breakdown Detail</th>
               <th className="border border-slate-400 border-collapse px-4 py-2 break-normal text-center ">Date</th>
               <th className="border border-slate-400   border-collapse px-4 py-2 break-normal text-center">Edit</th>
+              <th className="border border-slate-400   border-collapse px-4 py-2 break-normal text-center">Delete</th>
               
             </tr>
           </thead>

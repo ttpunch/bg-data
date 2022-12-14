@@ -9,6 +9,17 @@ const EditDataRow = ({ idData }) => {
   const handleBgClick = (e) => {
     setBreakdown({ ...saveData, [e.target.name]: e.target.value });
   };
+  
+  
+  const handleDelete  = (data) => {
+
+    axios.delete(`https://data-api-d6lk.onrender.com/editdata/${data}`).then(response => {
+      console.log(response.data);
+    })
+    .catch(error => {
+      console.log(error);
+    });
+  };
 
   const handleSubmit = (data) => {
     
@@ -27,12 +38,19 @@ const EditDataRow = ({ idData }) => {
         />
         <button
           className="bg-slate-400 ml-10 mt-2 mb-2 rounded-lg p-1"
-          type="submit"
+          onClick="submit"
         >
           save
         </button>
-       
+        
+        <button onClick={handleDelete(idData)}
+          className="bg-slate-400 ml-10 mt-2 mb-2 rounded-lg p-1"
+         >
+          Delete
+      </button>
       </form>
+
+      
     </div>
   );
 };
