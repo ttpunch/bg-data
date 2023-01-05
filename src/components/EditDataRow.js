@@ -39,24 +39,29 @@ const EditDataRow = ({ idData, delidData }) => {
           />
           <button
             className="bg-slate-400 ml-10 mt-2 mb-2 rounded-lg p-1"
-            onClick="submit"
+            type="submit"
           >
             save
           </button>
-        </form>
-      </div>
-      <div>
-        <form onSubmit={handledelSubmit(delidData)}>
+
+
+
+
           <button
-            onClick="submit"
+            onClick={handledelSubmit}
             className="bg-slate-400 ml-10 mt-2 mb-2 rounded-lg p-1"
           >
             Delete
           </button>
-        </form>
+                 
+       </form>
+      </div>
+      <div>
+       
+          
       </div>
     </div>
-  );
+   );
 };
 
 export default EditDataRow;
