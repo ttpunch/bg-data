@@ -1,18 +1,17 @@
-import React from 'react'
-
+import  { useEffect } from 'react';
+import App from '../App';
+import Login from './Login';
 
 const Logout = () => {
-
-const handleLogout=()=>{
-  window.render('/');
+  
+  useEffect(() => {
+    localStorage.removeItem('token');
+   
+  });
+ return(
+   <>
+    <Login/>
+   </>
+ )
 }
-
- 
-return (
-    <div>
-        <button onClick={handleLogout}>Logout</button>
-    </div>
-  )
-}
-
-export default Logout
+export default Logout;

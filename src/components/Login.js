@@ -1,16 +1,11 @@
 import React, { useState } from "react";
-import App from "../App";
 import image from "../asset/unsplash.jpg";
-import Logout from "./Logout";
+import axios from "axios";
 
 const Login = () => {
-  const [isLoggedin, setisLoddedin] = useState();
-  const [login, setLogin] = useState({
-    username: "",
-    password: "",
-  });
+   const [loginError, setLoginError] = useState("");
 
-  const [loginpass, setLoginpass] = useState({
+   const [login, setLogin] = useState({
     username: "",
     password: "",
   });
@@ -19,26 +14,26 @@ const Login = () => {
     setLogin({ ...login, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setLoginpass({ ...login });
-    sessionStorage.setItem("islogin", true);
-    // setTimeout(()=>{
-    //   localStorage.clear()
-    // },5000)
-  };
+ const handleSubmit = async(e) => {
+  e.preventDefault();
 
-  if (
-    (loginpass.username === "vinod" && login.password === "kumar") ||
-    sessionStorage.getItem("islogin")
-  ) {
-    return <App />;
-  } else
+   try {
+    const response = await axios.post("http://localhost:5500/login",login);
+
+    console.log(response.data);
+    // Save token to localStorage and redirect to home page
+    localStorage.setItem("token", response.data.token);
+    window.location.href = "/machinedata";
+  } catch (error) {
+    console.error(error);
+    setLoginError(error.response.data.message);
+  }
+}
     return (
       <div className="bg-[#d8cdc7] flex justify-center items-center w-screen h-screen">
       <div className="bg-white h-4/5 w-full sm:w-1/2 rounded-md flex shadow-xl overflow-hidden justify-center">
         <div className="bg-green-200 w-1/2 h-full rounded-l-md hidden sm:block">
-          <img className="h-full rounded-l-md" src={image} alt="image" />
+          <img className="h-full rounded-l-md" src={image} alt={"img"}/>
         </div>
         <div className="bg-[#fb7660] w-1/2 h-full flex flex-col justify-center rounded-r-md p-4 sm:p-8">
         <form onSubmit={handleSubmit} className="flex flex-col items-center">
@@ -64,6 +59,9 @@ const Login = () => {
         <button className="bg-[#174660] px-4 py-1 text-white rounded-xl mt-5 focus shadow-md cursor-pointer" type="submit">
           Login
         </button>
+        {loginError && (
+          <div className="text-red-500 text-sm mt-2">{loginError}</div>
+        )}
       </form>
         </div>
       </div>
