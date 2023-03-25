@@ -23,7 +23,7 @@ const Login = () => {
     console.log(response.data);
     // Save token to localStorage and redirect to home page
     localStorage.setItem("token", response.data.token);
-    window.location.href = "/machinedata";
+    window.location.href = "/";
   } catch (error) {
     console.error(error);
     setLoginError(error.response.data.message);
