@@ -18,7 +18,7 @@ const Login = () => {
   e.preventDefault();
 
    try {
-    const response = await axios.post("http://localhost:5500/login",login);
+    const response = await axios.post("https://data-api-d6lk.onrender.com/login",login);
 
     console.log(response.data);
     // Save token to localStorage and redirect to home page
