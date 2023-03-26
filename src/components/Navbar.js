@@ -26,7 +26,7 @@ const Navbar = () => {
         alt="scene"
       />
       <h1 className="text-black font-bold ml-48 uppercase mt-2 bg-white rounded-sm px-3 mb-2">
-        Breakdown Reporting System
+         Breakdown Tracker
       </h1>
       <div className="flex flex-row text-white list-none justify-end scale-75 ">
         {/* Hamburger menu icon */}
