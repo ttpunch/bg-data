@@ -1,69 +1,40 @@
-import React, { Fragment, useEffect } from "react";
+import React from "react";
 import { useState } from "react";
-import axios from "axios";
-import ReadOnlyEditData from "./ReadOnlyEditData";
-import EditDataRow from "./EditDataRow";
+import EditMachineWiseData from "./EditMachieWiseData";
 
 
-const Editdata = () => {
- 
- 
-  const [mongodata, getData] = useState([]);
-  const [editenable,setEditEnable]=useState('')
+const Editdata= () => {
+  const [data, setData] = useState([]);
+  const[finalData,setFinalData]=useState("")
+  const [active, setActive] = useState(false);
 
- const handleEditableClick=(e,data)=>{
-  e.preventDefault();  
-  setEditEnable(data._id)
-  console.log(data._id)
+  const handleIsubmit = (e) => {
+     setData(e.target.value)
+     console.log(e.target.value)
+  };
 
- }
-
- const handleDeleteData=(e,data)=>{
-  e.preventDefault();  
-  setEditEnable(data._id)
-  console.log(data._id)
+ const handleSubmit=(e)=>{
+  e.preventDefault()
+  setActive(true)
+  setFinalData(data)
 
  }
-
-
-  useEffect(() => {
-    axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
-      getData(res.data);
-      console.log(res.data)
-    });
-  }, []);
-
-
 
   return (
-   
-    <div className="mt-2 ml-64 mr-60  ">    
-        <table className="table-auto  text-left">
-          <thead className="border text-sm bg-white whitespace-nowrap  border-collapse uppercase">
-            <tr>
-              <th className="border border-slate-400 border-collapse px-4 py-2 break-normal text-center">Machine No</th>
-              <th className="border border-slate-400 border-collapse px-4 py-2 break-normal text-center" >Breakdown Detail</th>
-              <th className="border border-slate-400 border-collapse px-4 py-2 break-normal text-center ">Date</th>
-              <th className="border border-slate-400   border-collapse px-4 py-2 break-normal text-center">Edit</th>
-              <th className="border border-slate-400   border-collapse px-4 py-2 break-normal text-center">Delete</th>
-              
-            </tr>
-          </thead>
-      <tbody>
-        {mongodata.map((res) => (     
-               <Fragment>  
-                 {editenable===res._id ? <EditDataRow  data={res} idData={res._id} delidData={res._id}   /> : <ReadOnlyEditData  deleteData={handleDeleteData} editData={handleEditableClick} data={res}/>}
-               </Fragment> 
-            
-        ))}
-        
-      </tbody>
-    </table>
-  </div>
-    
-        
+    <div >
+      <div className="bg-yellow-400  h-100 ml-60 mt-10 flex  flex-row rounded-lg shadow-xl p-2">
+        <form onSubmit={handleSubmit} >
+          <lable className="font-bold"> Enter Machine No to Edit Data..</lable>
+          <input className=" rounded-xl ml-4 px-2  text-black " type="text"  value={data} onChange={handleIsubmit} />
+          <button className="bg-[#ffffff] rounded-xl px-2 py-1 mx-5 shadow-lg focus:ring-2 transform active:scale-95 transition-transform"type="submit">Submit</button>
+     
+        </form>
+      </div>
+       <div>
+        {active === true && <EditMachineWiseData machine_no={finalData} />}
+      </div> 
+    </div>
   );
 };
 
 export default Editdata;
-

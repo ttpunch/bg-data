@@ -4,6 +4,7 @@ import axios from "axios";
 
 const Login = () => {
    const [loginError, setLoginError] = useState("");
+   const [isloading,setisloading]=useState(false)
 
    const [login, setLogin] = useState({
     username: "",
@@ -16,9 +17,11 @@ const Login = () => {
 
  const handleSubmit = async(e) => {
   e.preventDefault();
+  setisloading(true)
 
    try {
     const response = await axios.post("https://data-api-d6lk.onrender.com/login",login);
+    setisloading(false)
 
     console.log(response.data);
     // Save token to localStorage and redirect to home page
@@ -59,6 +62,7 @@ const Login = () => {
         <button className="bg-[#174660] px-4 py-1 text-white rounded-xl mt-5 focus shadow-md cursor-pointer" type="submit">
           Login
         </button>
+        {(isloading && !loginError) && (<div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent text-secondary align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mt-4"></div>)}
         {loginError && (
           <div className="text-red-500 text-sm mt-2">{loginError}</div>
         )}
