@@ -41,13 +41,13 @@ const MachinewiseData = ({number}) => {
         <tbody className="shadow-xl bg-slate-200 ">
           {mongodata.map((res) => (
             <tr className="border text-xs  border-slate-600 border-collapse ">
-              <td key="{res.machine_no}"className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
+              <td key={res.machine_no} className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
                 {res.machine_no}
               </td>
-              <td key="{res.breakdown}"className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
+              <td key={res.breakdown}className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
                 {res.breakdown}
               </td>
-              <td key="{res.bgdate}"className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
+              <td key={res.bgdate} className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
                 {(new Date(res.bgdate)).toLocaleString('en-IN',{year: 'numeric', month: 'numeric', day: 'numeric'})}
               </td>
             </tr>

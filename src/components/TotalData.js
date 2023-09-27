@@ -1,17 +1,65 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { useTable, usePagination } from "react-table";
+
+const columns = [
+   {
+    Header: "MACHINE_NO",
+    accessor: "machine_no",
+  },
+  {
+    Header: "BREAKDOWN",
+    accessor: "breakdown",
+  },
+  {
+    Header: "BGDATE",
+    accessor: "bgdate",
+    Cell: ({ value }) => {
+      return new Date(value).toLocaleString("en-IN", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      });
+    },
+  },
+];
 
 const TotalData = () => {
   const [mongodata, getData] = useState([]);
   const [isLoading, setisLoading] = useState(true);
 
+ 
   useEffect(() => {
     axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
-      getData(res.data);
+      const sortedData = res.data.sort((a, b) => new Date(a.bgdate) - new Date(b.bgdate));
+      getData(sortedData);
       setisLoading(false);
     });
-  }, [mongodata]);
+  }, []);
+
+  const {
+    getTableProps,
+    getTableBodyProps,
+    headerGroups,
+    page,
+    rows,
+    prepareRow,
+    nextPage,
+    previousPage,
+    canPreviousPage,
+    canNextPage,
+    pageOptions,
+    pageCount,
+    gotoPage,
+    setPageSize,
+    state: { pageIndex, pageSize}
+  } = useTable({
+    columns,
+        data: mongodata,
+        initialState:{pageSize:20}
+         // Set initial page index and size
+         },
+  usePagination);
 
   if (isLoading) {
     return (
@@ -20,7 +68,7 @@ const TotalData = () => {
           <div role="status">
             <svg
               aria-hidden="true"
-              class="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
+              className="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
               viewBox="0 0 100 101"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -42,50 +90,88 @@ const TotalData = () => {
     );
   } else {
     return (
-      <div className="mt-2 ml-64 mr-60 ">
-        <table className="table-auto text-left shadow-xl bg-blue-100 border-opacity-75">
+      <div className="mt-2 ml-64 mr-60  flex flex-col  mx-auto min-w-fit ">
+        <table
+          {...getTableProps()}
+          className="text-left shadow-xl bg-blue-100 border-opacity-75 min-w-full "
+        >
           <thead className="border  bg-white whitespace-nowrap  border-collapse text-xs uppercase ">
-            <tr>
-              <th className="border border-slate-600 border-collapse border-opacity-75 px-4 py-2 text-center">
-                Machine No{" "}
-              </th>
-              <th className="border border-slate-600 border-collapse border-opacity-75  px-4 py-2 text-center ">
-                Breakdown Detail
-              </th>
-              <th className="border border-slate-600 border-collapse  border-opacity-75 px-4 py-2 text-center">
-                Date
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {mongodata.map((res) => (
-              <tr className="border text-xs  border-slate-600 border-collapse ">
-                <td
-                  key="{res.machine_no}}"
-                  className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1"
-                >
-                  {res.machine_no}
-                </td>
-                <td
-                  key="{res.breakdown}"
-                  className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1 text-justify"
-                >
-                  {res.breakdown}
-                </td>
-                <td
-                  key="{res.bgdate}"
-                  className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1"
-                >
-                  {new Date(res.bgdate).toLocaleString("en-IN", {
-                    year: "numeric",
-                    month: "numeric",
-                    day: "numeric",
-                  })}
-                </td>
+            {headerGroups.map((hg) => (
+              <tr {...hg.getHeaderGroupProps()}>
+                {hg.headers.map((header) => (
+                  <th
+                    {...header.getHeaderProps()}
+                    className="border border-slate-600 border-collapse border-opacity-75 px-4 py-2 text-center"
+                  >
+                    {header.render("Header")}
+                  </th>
+                ))}
               </tr>
             ))}
+          </thead>
+          <tbody {...getTableBodyProps()}>
+            {page.map((row) => {
+              prepareRow(row);
+              return (
+                <tr {...row.getRowProps()}>
+                  {row.cells.map((cell) => (
+                    <td
+                      {...cell.getCellProps()}
+                      className="border border-slate-600 border-collapse border-opacity-75 px-4 py-1"
+                    >
+                      {cell.render("Cell")}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        <div className="flex gap-8 border border-black px-4 mt-10 mx-auto py-2  hover:bg-slate-200">
+        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
+          {"<<"}
+        </button>{" "}
+        <button onClick={() => previousPage()} disabled={!canPreviousPage}>
+          {"<"}
+        </button>{" "}
+        <button onClick={() => nextPage()} disabled={!canNextPage}>
+          {">"}
+        </button>{" "}
+        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
+          {">>"}
+        </button>{" "}
+        <span>
+          Page{" "}
+          <strong>
+            {pageIndex + 1} of {pageOptions.length}
+          </strong>{" "}
+        </span>
+        <span>
+          | Go to page:{" "}
+          <input
+            type="number"
+            defaultValue={pageIndex + 1}
+            onChange={(e) => {
+              const page = e.target.value ? Number(e.target.value) - 1 : 0;
+              gotoPage(page);
+            }}
+            style={{ width: "100px" }}
+            className="border border-slate-400 rounded-md px-2"
+          />
+        </span>{" "}
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+          }}
+        >
+          {[10,20, 30, 40, 50].map((pageSize) => (
+            <option key={pageSize} value={pageSize}>
+              Show {pageSize}
+            </option>
+          ))}
+        </select>
+      </div>
       </div>
     );
   }
