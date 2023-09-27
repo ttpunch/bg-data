@@ -34,7 +34,7 @@ const RecordData = () => {
           <b>Machine No.</b>{" "}
         </label>
         <input
-          className=" border border-stone-500 mb-3  w-60 rounded-md text-sm"
+          className=" border border-stone-500 mb-3  w-60 rounded-md text-sm px-2 py-1"
           type="text"
           placeholder="Enter M/c No.."
           name="mcdata"
@@ -47,7 +47,7 @@ const RecordData = () => {
           <b> Breakdown Detail </b>{" "}
         </label>
         <textarea
-          className="border border-stone-500 mb-3 w-60 rounded-sm text-sm"
+          className="border border-stone-500 mb-3 w-60 rounded-sm text-sm px-2 py-1"
           placeholder="Enter Detail.."
           rows="6"
           cols="20"
