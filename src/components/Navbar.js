@@ -57,7 +57,7 @@ const Navbar = () => {
         <div
           className={`${
             isOpen ? "block" : "hidden"
-          } md:block flex-grow md:flex md:items-center md:w-auto`}
+          }  flex-grow md:flex md:items-center md:w-auto`}
         >
           <Link
             to="/home"
