@@ -24,7 +24,7 @@ const SearchData = ({ number }) => {
   };
 
   return (
-    <div className="ml-96 absolute mt-10 mr-64">
+    <div className="ml-56 absolute mt-10 mr-64">
       <div className="mb-4">
         <input
           type="text"
