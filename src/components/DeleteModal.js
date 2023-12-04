@@ -18,7 +18,7 @@ const customStyles = {
 
 const DeleteModal = ({machine_id}) => {
   const [isOpen, setIsOpen] = useState(false);
-  console.log("machineid",machine_id)
+
 
   
   const openModal = () => {
@@ -33,7 +33,7 @@ const DeleteModal = ({machine_id}) => {
 
    await axios.delete(`https://data-api-d6lk.onrender.com/editdata/${machine_id}`)
       .then(response => {
-        console.log(response.data)
+       
         alert('Data Deleted successfully!');
       })
       .catch(error => {

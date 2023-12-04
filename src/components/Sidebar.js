@@ -15,7 +15,10 @@ const Sidebar = () => {
             Edit Data
           </Link>
           <Link to="machineroute" className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
-            Search Data
+            Machine Data
+          </Link>
+          <Link to="search" className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
+            Keyword Search
           </Link>
         </div>
       </aside>

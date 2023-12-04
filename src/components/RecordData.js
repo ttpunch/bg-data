@@ -11,7 +11,7 @@ const RecordData = () => {
     bgdate: "",
   });
 
-  console.log(pushData);
+  
   const handleInput = (e) => {
     const newData = { ...pushData, [e.target.name]: e.target.value };
     setPushData(newData);

@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useState} from "react"
 import axios from "axios";
-import SaveEditDataModal from "./SaveEditDataModal";
+
 
 
 const MachinewiseData = ({number}) => {
@@ -10,7 +10,7 @@ const MachinewiseData = ({number}) => {
     const fetchData=async()=>{
     const response= await axios.get(`https://data-api-d6lk.onrender.com/machineroute/${number}`)
     getData(response.data)
-    console.log(mongodata);
+   
     }
 
     useEffect (()=>{

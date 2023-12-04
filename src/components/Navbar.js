@@ -10,7 +10,7 @@ const Navbar = () => {
   if (token) {
     const decoded = jwt_decode(token);
     user = decoded.userId;
-    console.log(decoded)
+  
   }
 
 
@@ -57,7 +57,7 @@ const Navbar = () => {
         <div
           className={`${
             isOpen ? "block" : "hidden"
-          } md:block flex-grow md:flex md:items-center md:w-auto`}
+          } flex-grow md:flex md:items-center md:w-auto`}
         >
           <Link
             to="/home"

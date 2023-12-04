@@ -11,8 +11,7 @@ const EditMachineWiseData = ({machine_no}) => {
     const fetchData=async()=>{
     const response= await axios.get(`https://data-api-d6lk.onrender.com/machineroute/${machine_no}`)
     getData(response.data)
-    console.log(mongodata);
-    }
+      }
 
     useEffect (()=>{
       fetchData();

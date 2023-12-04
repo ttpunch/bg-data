@@ -10,6 +10,8 @@ import Searchmachine from "./Searchmachine";
 import Home from "./Home";
 import Logout from "./Logout";
 import Login from "./Login";
+import SearchData from "./SearchData";
+
 
 const Layout = () => {
   const location = useLocation();
@@ -37,6 +39,7 @@ const Layout = () => {
                   <Route path="/machineroute" element={<Searchmachine />} />
                   <Route path="/" element={<Home />} />
                   <Route path='/logout' element={<Logout/>}/>
+                  <Route path='/search' element={<SearchData/>}/>
                 </Routes>
               </div>
             </div>

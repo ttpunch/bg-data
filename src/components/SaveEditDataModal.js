@@ -21,7 +21,7 @@ const SaveEditDataModal = ({machine_id}) => {
   const[updating,setupdating]=useState(false)
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  console.log("machineid",machine_id)
+  
 
   const handleInputChange = (event) => {
     setInputValue(event.target.value);
@@ -41,7 +41,7 @@ const SaveEditDataModal = ({machine_id}) => {
 
    await axios.put(`https://data-api-d6lk.onrender.com/editdata/${machine_id}`, {breakdown:inputValue})
       .then(response => {
-        console.log(response.data)
+    
         alert('Data updated successfully!');
       })
       .catch(error => {
