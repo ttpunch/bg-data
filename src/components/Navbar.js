@@ -61,7 +61,7 @@ const Navbar = () => {
         >
           <Link
             to="/home"
-            className=" bg-white w-18 h-6 mx-10 px-2 rounded text-black font-bold mt-2"
+            className="bg-white w-18 h-6 mx-10 px-2 rounded text-black font-bold mt-2"
           >
             User: {user}
           </Link>

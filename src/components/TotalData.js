@@ -1,67 +1,180 @@
-import React, { useEffect } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
+import { useTable, usePagination } from "react-table";
 
+const columns = [
+   {
+    Header: "MACHINE_NO",
+    accessor: "machine_no",
+  },
+  {
+    Header: "BREAKDOWN",
+    accessor: "breakdown",
+  },
+  {
+    Header: "BGDATE",
+    accessor: "bgdate",
+    Cell: ({ value }) => {
+      return new Date(value).toLocaleString("en-IN", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      });
+    },
+  },
+];
 
 const TotalData = () => {
   const [mongodata, getData] = useState([]);
-  const [isLoading,setisLoading]=useState(true)
+  const [isLoading, setisLoading] = useState(true);
 
+ 
   useEffect(() => {
-    
-      axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
-      getData(res.data);
-      setisLoading(false)
+    axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
+      const sortedData = res.data.sort((a, b) => new Date(a.bgdate) - new Date(b.bgdate));
+      getData(sortedData);
+      setisLoading(false);
     });
-  },[mongodata]);
-  
-  if(isLoading) {
+  }, []);
+
+  const {
+    getTableProps,
+    getTableBodyProps,
+    headerGroups,
+    page,
+    rows,
+    prepareRow,
+    nextPage,
+    previousPage,
+    canPreviousPage,
+    canNextPage,
+    pageOptions,
+    pageCount,
+    gotoPage,
+    setPageSize,
+    state: { pageIndex, pageSize}
+  } = useTable({
+    columns,
+        data: mongodata,
+        initialState:{pageSize:20}
+         // Set initial page index and size
+         },
+  usePagination);
+
+  if (isLoading) {
     return (
       <div className="mt-10 ml-64 mr-60 ">
-        
         <li className="flex items-center">
-        <div role="status">
-            <svg aria-hidden="true" class="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/><path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/></svg>
+          <div role="status">
+            <svg
+              aria-hidden="true"
+              className="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
+              viewBox="0 0 100 101"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                fill="currentColor"
+              />
+              <path
+                d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                fill="currentFill"
+              />
+            </svg>
             <span className="sr-only">Loading...</span>
-        </div>
-        Fetching Data...
-    </li>
-       
+          </div>
+          Fetching Data...
+        </li>
+      </div>
+    );
+  } else {
+    return (
+      <div className="mt-2 ml-64 mr-60  flex flex-col  mx-auto min-w-fit ">
+        <table
+          {...getTableProps()}
+          className="text-left shadow-xl bg-blue-100 border-opacity-75 min-w-full "
+        >
+          <thead className="border  bg-white whitespace-nowrap  border-collapse text-xs uppercase ">
+            {headerGroups.map((hg) => (
+              <tr {...hg.getHeaderGroupProps()}>
+                {hg.headers.map((header) => (
+                  <th
+                    {...header.getHeaderProps()}
+                    className="border border-slate-600 border-collapse border-opacity-75 px-4 py-2 text-center"
+                  >
+                    {header.render("Header")}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody {...getTableBodyProps()}>
+            {page.map((row) => {
+              prepareRow(row);
+              return (
+                <tr {...row.getRowProps()}>
+                  {row.cells.map((cell) => (
+                    <td
+                      {...cell.getCellProps()}
+                      className="border border-slate-600 border-collapse border-opacity-75 px-4 py-1"
+                    >
+                      {cell.render("Cell")}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div className="flex gap-8 border border-black px-4 mt-10 mx-auto py-2  hover:bg-slate-200">
+        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
+          {"<<"}
+        </button>{" "}
+        <button onClick={() => previousPage()} disabled={!canPreviousPage}>
+          {"<"}
+        </button>{" "}
+        <button onClick={() => nextPage()} disabled={!canNextPage}>
+          {">"}
+        </button>{" "}
+        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
+          {">>"}
+        </button>{" "}
+        <span>
+          Page{" "}
+          <strong>
+            {pageIndex + 1} of {pageOptions.length}
+          </strong>{" "}
+        </span>
+        <span>
+          | Go to page:{" "}
+          <input
+            type="number"
+            defaultValue={pageIndex + 1}
+            onChange={(e) => {
+              const page = e.target.value ? Number(e.target.value) - 1 : 0;
+              gotoPage(page);
+            }}
+            style={{ width: "100px" }}
+            className="border border-slate-400 rounded-md px-2"
+          />
+        </span>{" "}
+        <select
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+          }}
+        >
+          {[10,20, 30, 40, 50].map((pageSize) => (
+            <option key={pageSize} value={pageSize}>
+              Show {pageSize}
+            </option>
+          ))}
+        </select>
+      </div>
       </div>
     );
   }
-  else {
-
-  return (
-   
-
-    <div className="mt-2 ml-64 mr-60 ">    
-        <table className="table-auto text-left shadow-xl bg-blue-100 border-opacity-75">
-          <thead className="border  bg-white whitespace-nowrap  border-collapse text-xs uppercase ">
-            <tr>
-              <th className="border border-slate-600 border-collapse border-opacity-75 px-4 py-2 text-center">Machine No </th>
-              <th className="border border-slate-600 border-collapse border-opacity-75  px-4 py-2 text-center " >Breakdown Detail</th>
-              <th className="border border-slate-600 border-collapse  border-opacity-75 px-4 py-2 text-center">Date</th>
-            </tr>
-          </thead>
-      <tbody>
-        {mongodata.map((res) => (       
-              <tr className="border text-xs  border-slate-600 border-collapse ">
-              <td key="{res.machine_no}}"className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1">{res.machine_no}</td>
-              <td  key="{res.breakdown}" className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1 text-justify">{res.breakdown}</td>
-              <td  key="{res.bgdate}" className="border border-slate-800 border-collapse border-opacity-25 px-4 py-1">{(new Date(res.bgdate)).toLocaleString('en-IN',{year: 'numeric', month: 'numeric', day: 'numeric'})}</td>
-              
-            </tr>
-            ))}
-      </tbody>
-    </table>
-  </div>
-    
-        
-  );}
 };
 
 export default TotalData;
-
-
-
