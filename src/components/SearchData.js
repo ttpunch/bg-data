@@ -1,26 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const SearchData = ({ number }) => {
   const [mongodata, getData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      /* const response = await axios.get(`https://data-api-d6lk.onrender.com/search?search=${searchTerm}`); */
       const response = await axios.get(
-        `https://data-api-d6lk.onrender.com/search/search?search=${searchTerm}`
+        `http://localhost:5500/search/search?search=${searchTerm}`
       );
       getData(response.data);
     } catch (error) {
       console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+      setInitialLoad(false);
     }
   };
 
-  //
-
   const handleSearch = () => {
+    if(searchTerm===""){
+      alert('Please enter a search term')
+    }
+    else {
     fetchData();
+    }
   };
 
   return (
@@ -31,18 +39,20 @@ const SearchData = ({ number }) => {
           placeholder="Search by description"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="rounded-xl ml-4 px-4 py-2 border border-slate-800"
+          className="rounded-xl ml-4 px-4 py-2 border border-black"
         />
         <button
           onClick={handleSearch}
-          className="ml-2 px-4 py-2 rounded-2xl bg-blue-500 text-white"
+          className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md"
         >
           Search
         </button>
       </div>
 
-      {mongodata.length > 0 && (
-        <table className="table-auto text-left p-10">
+      {loading ? (
+        <div className="ml-4">Loading...</div>
+      ) : mongodata.length > 0 ? (
+        <table className="table-auto text-left p-10 ml-4">
           {/* Rest of your table rendering code */}
           <thead className="border bg-white text-wrap border-collapse text-xs uppercase">
             <tr>
@@ -77,6 +87,13 @@ const SearchData = ({ number }) => {
             ))}
           </tbody>
         </table>
+      ) : (
+        !initialLoad && (
+          <div className="ml-4 text-red-400 flex gap-x-4 ">
+            <p className="italic">No matching data found !! </p>
+            <span className="animate-bounce">&#128527;</span>
+          </div>
+        )
       )}
     </div>
   );
