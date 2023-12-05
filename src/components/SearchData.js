@@ -11,7 +11,7 @@ const SearchData = ({ number }) => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5500/search/search?search=${searchTerm}`
+        `https://data-api-d6lk.onrender.com/search/search?search=${searchTerm}`
       );
       getData(response.data);
     } catch (error) {
