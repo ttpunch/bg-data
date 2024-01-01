@@ -31,9 +31,7 @@ const RecordData = () => {
       formData.append('image', file);
       const response = await axios.post("https://data-api-d6lk.onrender.com/image", formData);
       
-      console.log(response.data);
-      console.log(pushData)
-
+      
       if(response){
         setPushData({ ...pushData, image: response.data.link });
         await axios.post("https://data-api-d6lk.onrender.com/submit-form", pushData)
@@ -107,12 +105,14 @@ const RecordData = () => {
           </button>
         </div>
 
-        <div>{recorded === true && <DataSaved />}</div>
+        
 
         <div className="flex flex-col mx-auto mt-3 mb-3">
           <input type="file" onChange={handleFileChange} />
         </div>
       </form>
+
+      <div>{recorded === true && <DataSaved />}</div>
     </div>
   );
 };
