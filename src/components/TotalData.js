@@ -22,6 +22,18 @@ const columns = [
       });
     },
   },
+  {
+    Header: "IMAGE",
+    accessor: "image",
+    Cell: ({ value }) =>
+      value ? (
+        <a href={value} target="_blank" rel="noopener noreferrer">
+          <img src={value} alt="Thumbnail" style={{ width: "50px", height: "50px" }} />
+        </a>
+      ) : (
+        "No Image"
+      ),
+  },
 ];
 
 const TotalData = () => {
@@ -42,7 +54,6 @@ const TotalData = () => {
     getTableBodyProps,
     headerGroups,
     page,
-    rows,
     prepareRow,
     nextPage,
     previousPage,
