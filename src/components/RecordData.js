@@ -33,7 +33,7 @@ const RecordData = () => {
       
       
       if(response){
-        setPushData({ ...pushData, image: response.data.link });
+        setPushData({ ...pushData, image: response.data.url });
         await axios.post("https://data-api-d6lk.onrender.com/submit-form", pushData)
       .then(() => alert("data Entered"));
       }
