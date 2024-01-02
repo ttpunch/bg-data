@@ -43,8 +43,8 @@ const TotalData = () => {
  
   useEffect(() => {
     axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
-      const sortedData = res.data.sort((a, b) => new Date(a.bgdate) - new Date(b.bgdate));
-      getData(sortedData);
+      //const sortedData = res.data.sort((a, b) => new Date(b.bgdate) - new Date(a.bgdate));
+      getData(res.data);
       setisLoading(false);
     });
   }, []);
