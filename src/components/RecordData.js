@@ -1,7 +1,11 @@
 import axios from "axios";
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import DataSaved from "./DataSaved";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "./ui/card";
+import { toast } from "sonner";
 
 const RecordData = () => {
   const [recorded, setrecorded] = useState(false);
@@ -23,110 +27,122 @@ const RecordData = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (file) {
+    const promise = new Promise(async (resolve, reject) => {
       try {
-        const formData = new FormData();
-        formData.append("image", file);
-        const response = await axios.post(
-          "https://data-api-d6lk.onrender.com/image",
-          formData
-        );
-
-        if (response.data.link) {
-          const updatedPushData = {
-            ...pushData,
-            image: response.data.link,
-          };
-
-          setPushData(updatedPushData);
-
-          await axios
-            .post(
-              "https://data-api-d6lk.onrender.com/submit-form",
-              updatedPushData
-            )
-            .then(() => alert("Data entered with image"));
-          setFile(null);
+        let imageLink = null;
+        if (file) {
+          const formData = new FormData();
+          formData.append("image", file);
+          const imgResponse = await axios.post(`${process.env.REACT_APP_API_URL}/image`, formData);
+          imageLink = imgResponse.data.link;
         }
+
+        const currentData = { ...pushData, ...(imageLink && { image: imageLink }) };
+        setPushData(currentData);
+
+        await axios.post(`${process.env.REACT_APP_API_URL}/submit-form`, currentData);
+        setPushData({
+          mcdata: "",
+          bgdetail: "",
+          bgdate: "",
+        });
+        setFile(null);
+        setrecorded(true);
+        resolve(file ? "Data entered with image" : "Data entered without image");
       } catch (error) {
-        console.error("Error uploading image: ", error);
-        // Handle error, show message, etc.
+        console.error("Error submitting form: ", error);
+        reject(error);
       }
-    } else {
-      await axios
-        .post("https://data-api-d6lk.onrender.com/submit-form", pushData)
-        .then(() => alert("Data entered without image"));
-    }
-    setrecorded(true);
+    });
+
+    toast.promise(promise, {
+      loading: 'Submitting breakdown report...',
+      success: (data) => `${data}`,
+      error: 'Error submitting report',
+    });
   };
 
   return (
-    <div className="flex flex-col p-2 mt-10 mx-auto bg-blue-300 rounded-lg shadow-xl w-92 h-100 ml-96 ">
-      <form
-        className="flex flex-col justify-center main"
-        onSubmit={handleSubmit}
-      >
-        <label>
-          <b>Machine No :</b>
-        </label>
-        <input
-          className="px-2 py-1 mb-3 text-sm border rounded-md border-stone-500 w-60 mx-auto resize"
-          type="text"
-          placeholder="Enter M/c No.."
-          name="mcdata"
-          value={pushData.mcdata}
-          onChange={handleInput}
-          required
-        />
-        <label>
-          <b> Breakdown Detail :</b>
-        </label>
-        <textarea
-          className="px-2 py-1 mb-3 text-sm border rounded-sm border-stone-500 w-60 mx-auto resize"
-          placeholder="Enter Detail.."
-          rows="6"
-          cols="20"
-          name="bgdetail"
-          value={pushData.bgdetail}
-          onChange={handleInput}
-          required
-        ></textarea>
-        <label>
-          
-          <b> Breakdown Date </b>
-        </label>
-        <input
-          className="mb-3"
-          type="date"
-          name="bgdate"
-          value={pushData.bgdate}
-          onChange={handleInput}
-          required
-        />
+    <div className="flex justify-center mt-10 w-full px-4 mb-10">
+      <Card className="w-full max-w-lg shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl">Record Breakdown</CardTitle>
+          <CardDescription>
+            Enter the details of the machine breakdown below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="grid gap-6">
+            <div className="grid gap-2">
+              <label htmlFor="mcdata" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Machine No
+              </label>
+              <Input
+                id="mcdata"
+                name="mcdata"
+                placeholder="Enter M/c No.."
+                value={pushData.mcdata}
+                onChange={handleInput}
+                required
+              />
+            </div>
 
-        
-           <label><b>Select image: </b></label>
-          <input name="image" type="file" onChange={handleFileChange}  className="mb-3 overflow-hidden "/>
-        
-      </form>
+            <div className="grid gap-2">
+              <label htmlFor="bgdetail" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Breakdown Detail
+              </label>
+              <Textarea
+                id="bgdetail"
+                name="bgdetail"
+                placeholder="Describe the issue..."
+                rows="4"
+                value={pushData.bgdetail}
+                onChange={handleInput}
+                required
+              />
+            </div>
 
-      <div className="flex mt-3 justify-evenly ">
-        <button
-          className="px-2 text-white rounded bg-slate-500"
-          onClick={handleSubmit}
-        >
-          Submit
-        </button>
-        <button
-          className="px-2 text-white rounded bg-slate-500"
-          type="reset"
-          onClick={() => setrecorded(false)}
-        >
-          Reset
-        </button>
-      </div>
+            <div className="grid gap-2">
+              <label htmlFor="bgdate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Breakdown Date
+              </label>
+              <Input
+                id="bgdate"
+                type="date"
+                name="bgdate"
+                value={pushData.bgdate}
+                onChange={handleInput}
+                required
+              />
+            </div>
 
-      <div>{recorded === true && <DataSaved />}</div>
+            <div className="grid gap-2">
+              <label htmlFor="image" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Upload Image (Optional)
+              </label>
+              <Input
+                id="image"
+                name="image"
+                type="file"
+                className="cursor-pointer"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            <div className="flex gap-4 justify-end mt-2">
+              <Button type="button" variant="ghost" onClick={() => setrecorded(false)}>
+                Reset
+              </Button>
+              <Button type="submit">
+                Submit Report
+              </Button>
+            </div>
+          </form>
+          <div className="mt-4">
+            {recorded === true && <DataSaved />}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

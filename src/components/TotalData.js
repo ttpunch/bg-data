@@ -1,37 +1,58 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useTable, usePagination } from "react-table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
+import { Button } from "./ui/button";
 
 const columns = [
-   {
-    Header: "MACHINE_NO",
+  {
+    Header: "S/No",
+    id: "serial",
+    Cell: ({ row }) => {
+      return <span>{parseInt(row.id) + 1}</span>;
+    },
+    width: 60, // Optional: specific width for S/No
+  },
+  {
+    Header: "Machine No",
     accessor: "machine_no",
   },
   {
-    Header: "BREAKDOWN",
+    Header: "Breakdown",
     accessor: "breakdown",
   },
   {
-    Header: "BGDATE",
+    Header: "Date",
     accessor: "bgdate",
     Cell: ({ value }) => {
-      return new Date(value).toLocaleString("en-IN", {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-      });
+      return (
+        <div className="min-w-[120px]">
+          {new Date(value).toLocaleDateString("en-IN", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+        </div>
+      );
     },
   },
   {
-    Header: "IMAGE",
+    Header: "Image",
     accessor: "image",
     Cell: ({ value }) =>
       value ? (
         <a href={value} target="_blank" rel="noopener noreferrer">
-          <img src={value} alt="Thumbnail" style={{ width: "50px", height: "50px" }} />
+          <img src={value} alt="Thumbnail" className="h-10 w-10 object-cover rounded-md border" />
         </a>
       ) : (
-        "No Image"
+        <span className="text-muted-foreground text-xs">No Image</span>
       ),
   },
 ];
@@ -40,10 +61,9 @@ const TotalData = () => {
   const [mongodata, getData] = useState([]);
   const [isLoading, setisLoading] = useState(true);
 
- 
+
   useEffect(() => {
-    axios.get("https://data-api-d6lk.onrender.com/machinedata").then((res) => {
-      //const sortedData = res.data.sort((a, b) => new Date(b.bgdate) - new Date(a.bgdate));
+    axios.get(`${process.env.REACT_APP_API_URL}/machinedata`).then((res) => {
       getData(res.data);
       setisLoading(false);
     });
@@ -60,129 +80,95 @@ const TotalData = () => {
     canPreviousPage,
     canNextPage,
     pageOptions,
-    pageCount,
-    gotoPage,
     setPageSize,
-    state: { pageIndex, pageSize}
+    state: { pageIndex, pageSize }
   } = useTable({
     columns,
-        data: mongodata,
-        initialState:{pageSize:20}
-         // Set initial page index and size
-         },
-  usePagination);
+    data: mongodata,
+    initialState: { pageSize: 12 }
+  },
+    usePagination);
 
   if (isLoading) {
+    // ... loading state
     return (
-      <div className="mt-10 ml-64 mr-60 ">
-        <li className="flex items-center">
-          <div role="status">
-            <svg
-              aria-hidden="true"
-              className="w-5 h-5 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
-              viewBox="0 0 100 101"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                fill="currentColor"
-              />
-              <path
-                d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                fill="currentFill"
-              />
-            </svg>
-            <span className="sr-only">Loading...</span>
-          </div>
-          Fetching Data...
-        </li>
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span className="text-muted-foreground">Loading Data...</span>
+        </div>
       </div>
     );
   } else {
     return (
-      <div className="mt-2 ml-64 mr-60  flex flex-col  mx-auto min-w-fit ">
-        <table
-          {...getTableProps()}
-          className="text-left shadow-xl bg-blue-100 border-opacity-75 min-w-full "
-        >
-          <thead className="border  bg-white whitespace-nowrap  border-collapse text-xs uppercase ">
-            {headerGroups.map((hg) => (
-              <tr {...hg.getHeaderGroupProps()}>
-                {hg.headers.map((header) => (
-                  <th
-                    {...header.getHeaderProps()}
-                    className="border border-slate-600 border-collapse border-opacity-75 px-4 py-2 text-center"
-                  >
-                    {header.render("Header")}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody {...getTableBodyProps()}>
-            {page.map((row) => {
-              prepareRow(row);
-              return (
-                <tr {...row.getRowProps()}>
-                  {row.cells.map((cell) => (
-                    <td
-                      {...cell.getCellProps()}
-                      className="border border-slate-600 border-collapse border-opacity-75 px-4 py-1"
-                    >
-                      {cell.render("Cell")}
-                    </td>
+      <div className="w-full space-y-4">
+        <div className="rounded-md border bg-card">
+          <Table {...getTableProps()}>
+            <TableHeader>
+              {headerGroups.map((hg) => (
+                <TableRow {...hg.getHeaderGroupProps()}>
+                  {hg.headers.map((header) => (
+                    <TableHead {...header.getHeaderProps()}>
+                      {header.render("Header")}
+                    </TableHead>
                   ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="flex gap-8 border border-black px-4 mt-10 mx-auto py-2  hover:bg-slate-200">
-        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
-          {"<<"}
-        </button>{" "}
-        <button onClick={() => previousPage()} disabled={!canPreviousPage}>
-          {"<"}
-        </button>{" "}
-        <button onClick={() => nextPage()} disabled={!canNextPage}>
-          {">"}
-        </button>{" "}
-        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
-          {">>"}
-        </button>{" "}
-        <span>
-          Page{" "}
-          <strong>
-            {pageIndex + 1} of {pageOptions.length}
-          </strong>{" "}
-        </span>
-        <span>
-          | Go to page:{" "}
-          <input
-            type="number"
-            defaultValue={pageIndex + 1}
-            onChange={(e) => {
-              const page = e.target.value ? Number(e.target.value) - 1 : 0;
-              gotoPage(page);
-            }}
-            style={{ width: "100px" }}
-            className="border border-slate-400 rounded-md px-2"
-          />
-        </span>{" "}
-        <select
-          value={pageSize}
-          onChange={(e) => {
-            setPageSize(Number(e.target.value));
-          }}
-        >
-          {[10,20, 30, 40, 50].map((pageSize) => (
-            <option key={pageSize} value={pageSize}>
-              Show {pageSize}
-            </option>
-          ))}
-        </select>
-      </div>
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody {...getTableBodyProps()}>
+              {page.map((row) => {
+                prepareRow(row);
+                return (
+                  <TableRow {...row.getRowProps()}>
+                    {row.cells.map((cell) => (
+                      <TableCell {...cell.getCellProps()}>
+                        {cell.render("Cell")}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="h-20"></div>
+        <div className="fixed bottom-0 right-0 left-0 md:left-64 bg-background py-4 border-t z-20 flex items-center justify-between px-4 md:px-6 shadow-[0_-1px_2px_rgba(0,0,0,0.05)]">
+          <div className="flex-1 text-sm text-muted-foreground">
+            Page {pageIndex + 1} of {pageOptions.length}
+          </div>
+          <div className="flex items-center space-x-2">
+            <select
+              className="h-8 w-[70px] rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+              }}
+            >
+              {[10, 20, 30, 40, 50].map((pageSize) => (
+                <option key={pageSize} value={pageSize}>
+                  {pageSize}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => previousPage()}
+              disabled={!canPreviousPage}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => nextPage()}
+              disabled={!canNextPage}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

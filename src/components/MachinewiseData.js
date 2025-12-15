@@ -1,59 +1,65 @@
-import React, { useEffect } from "react";
-import { useState} from "react"
+import React, { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
 
+const MachinewiseData = ({ number }) => {
+  const [mongodata, getData] = useState([]);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/machineroute/${number}`);
+        getData(response.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
+  }, [number]);
 
-const MachinewiseData = ({number}) => {
- const [mongodata, getData] = useState([]);
-
-    const fetchData=async()=>{
-    const response= await axios.get(`https://data-api-d6lk.onrender.com/machineroute/${number}`)
-    getData(response.data)
-   
-    }
-
-    useEffect (()=>{
-      fetchData();
-    },[`${number}`])
-        
-  
- 
   return (
-    
-    <div className="ml-96  absolute mt-10 mr-64">
-      <table className="table-auto text-left  p-10">
-        <thead className="border  bg-white text-wrap border-collapse text-xs uppercase">
-          <tr>
-            <th className="border border-slate-400 px-4 py-2  ">
-              Machine No
-            </th>
-            <th className="border border-slate-400  px-4 py-2">
-              Breakdown Detail
-            </th>
-            <th className="border border-slate-400  px-4 py-2">
-              Date
-            </th>
-           
-          </tr>
-        </thead>
-
-        <tbody className="shadow-xl bg-slate-200 ">
-          {mongodata.map((res) => (
-            <tr className="border text-xs  border-slate-600 border-collapse ">
-              <td key={res.machine_no} className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
-                {res.machine_no}
-              </td>
-              <td key={res.breakdown}className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
-                {res.breakdown}
-              </td>
-              <td key={res.bgdate} className="border border-slate-800 border-collapse  border-opacity-25 px-4 py-1 whitespace-wrap">
-                {(new Date(res.bgdate)).toLocaleString('en-IN',{year: 'numeric', month: 'numeric', day: 'numeric'})}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="w-full mt-4">
+      {mongodata.length > 0 ? (
+        <div className="rounded-md border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[80px]">S/No</TableHead>
+                <TableHead>Machine No</TableHead>
+                <TableHead>Breakdown Detail</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {mongodata.map((res, index) => (
+                <TableRow key={res._id || Math.random()}>
+                  <TableCell className="font-medium">{index + 1}</TableCell>
+                  <TableCell className="font-medium">{res.machine_no}</TableCell>
+                  <TableCell>{res.breakdown}</TableCell>
+                  <TableCell className="min-w-[120px]">
+                    {new Date(res.bgdate).toLocaleDateString("en-IN", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="flex justify-center p-8 bg-muted/20 rounded-md">
+          <p className="text-muted-foreground">No breakdown records found for this machine.</p>
+        </div>
+      )}
     </div>
   );
 };

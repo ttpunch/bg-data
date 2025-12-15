@@ -11,7 +11,7 @@ function LoginSuccess() {
     const token = localStorage.getItem("token");
     if (token) {
       try {
-        const decoded = jwt_decode(token);
+        jwt_decode(token);
         // If the token is valid, set isLoggedIn to true
         setIsLoggedIn(true);
       } catch (error) {
@@ -24,9 +24,9 @@ function LoginSuccess() {
   return (
     <div>
       {isLoggedIn ? (
-        <App/>
+        <App />
       ) : (
-        <Login/>
+        <Login />
       )}
     </div>
   );

@@ -1,27 +1,41 @@
 import React from 'react'
-import {Link} from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { LayoutDashboard, Database, Edit, HardDrive, Search } from "lucide-react"
+import { cn } from "../lib/utils"
+import { Button } from "./ui/button"
 
 const Sidebar = () => {
+  const location = useLocation();
+
+  const links = [
+    { name: "Breakdown Data", path: "/machinedata", icon: LayoutDashboard },
+    { name: "Record Data", path: "/recorddata", icon: Database },
+    { name: "Edit Data", path: "/editdata", icon: Edit },
+    { name: "Machine Data", path: "/machineroute", icon: HardDrive },
+    { name: "Keyword Search", path: "/search", icon: Search },
+  ];
+
   return (
-    <aside className="bg-blue-300 w-48 h-screen flex sticky top-0">
-        <div className="flex flex-col mx-5">
-          <Link to="machinedata" className="bg-white rounded px-2 my-2 cursor-pointer shadow-xl  hover:bg-slate-300 hover:scale-105  active:bg-zinc-400">
-            Breakdown Data
-          </Link>
-          <Link to="recorddata"className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
-            Record Data
-          </Link>
-          <Link to="editdata" className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
-            Edit Data
-          </Link>
-          <Link to="machineroute" className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
-            Machine Data
-          </Link>
-          <Link to="search" className="bg-white rounded px-2  my-2 cursor-pointer shadow-xl hover:bg-slate-300 hover:scale-105 active:bg-zinc-400">
-            Keyword Search
-          </Link>
-        </div>
-      </aside>
+    <aside className="w-64 border-r bg-muted/40 h-full hidden md:block">
+      <div className="flex flex-col gap-2 p-4">
+        {links.map((link) => {
+          const Icon = link.icon;
+          const isActive = location.pathname.includes(link.path);
+
+          return (
+            <Link key={link.path} to={link.path}>
+              <Button
+                variant={isActive ? "secondary" : "ghost"}
+                className={cn("w-full justify-start", isActive && "bg-secondary")}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {link.name}
+              </Button>
+            </Link>
+          )
+        })}
+      </div>
+    </aside>
   )
 }
 

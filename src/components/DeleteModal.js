@@ -31,7 +31,7 @@ const DeleteModal = ({machine_id}) => {
 
   const handleOk = async() => {
 
-   await axios.delete(`https://data-api-d6lk.onrender.com/editdata/${machine_id}`)
+   await axios.delete(`${process.env.REACT_APP_API_URL}/editdata/${machine_id}`)
       .then(response => {
        
         alert('Data Deleted successfully!');
