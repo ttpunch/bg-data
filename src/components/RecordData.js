@@ -6,6 +6,11 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "./ui/card";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "../lib/utils";
 
 const RecordData = () => {
   const [recorded, setrecorded] = useState(false);
@@ -19,6 +24,14 @@ const RecordData = () => {
   const handleInput = (e) => {
     const newData = { ...pushData, [e.target.name]: e.target.value };
     setPushData(newData);
+  };
+
+  const handleDateSelect = (date) => {
+    if (date) {
+      // Convert to YYYY-MM-DD string for consistency with backend expectation
+      const formattedDate = format(date, "yyyy-MM-dd");
+      setPushData({ ...pushData, bgdate: formattedDate });
+    }
   };
 
   const handleFileChange = (e) => {
@@ -103,17 +116,38 @@ const RecordData = () => {
             </div>
 
             <div className="grid gap-2">
-              <label htmlFor="bgdate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              <label htmlFor="bgdate" className="text-sm font-medium leading-none">
                 Breakdown Date
               </label>
-              <Input
-                id="bgdate"
-                type="date"
-                name="bgdate"
-                value={pushData.bgdate}
-                onChange={handleInput}
-                required
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full pl-3 text-left font-normal",
+                      !pushData.bgdate && "text-muted-foreground"
+                    )}
+                  >
+                    {pushData.bgdate ? (
+                      format(new Date(pushData.bgdate), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={pushData.bgdate ? new Date(pushData.bgdate) : undefined}
+                    onSelect={handleDateSelect}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("1900-01-01")
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="grid gap-2">

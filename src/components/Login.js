@@ -31,7 +31,7 @@ const Login = () => {
       console.log(response.data);
       // Save token to localStorage and redirect to home page
       localStorage.setItem("token", response.data.token);
-      window.location.href = "/";
+      window.location.href = "/machinedata";
     } catch (error) {
       console.error(error);
       setisloading(false);

@@ -1,17 +1,26 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import jwt_decode from "jwt-decode";
-import { Menu, User, LogOut, X, FileSpreadsheet } from "lucide-react";
+import { Menu, User, LogOut, X, FileSpreadsheet, LayoutDashboard, Database, Edit, HardDrive, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { cn } from "../lib/utils";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const token = localStorage.getItem("token");
   let user = null;
+
+  const links = [
+    { name: "Breakdown Data", path: "/machinedata", icon: LayoutDashboard },
+    { name: "Record Data", path: "/recorddata", icon: Database },
+    { name: "Edit Data", path: "/editdata", icon: Edit },
+    { name: "Machine Data", path: "/machineroute", icon: HardDrive },
+    { name: "Keyword Search", path: "/search", icon: Search },
+  ];
 
   if (token) {
     try {
@@ -94,13 +103,31 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden border-t p-4 space-y-2 bg-background">
+        <div className="absolute top-16 left-0 w-full z-50 border-b p-4 space-y-2 bg-background shadow-lg md:hidden">
           {user && (
             <div className="flex items-center gap-2 text-sm font-medium mb-4 p-2">
               <User className="h-4 w-4" />
               <span>{user}</span>
             </div>
           )}
+
+          <div className="flex flex-col gap-2 mb-4">
+            {links.map((link) => {
+              const Icon = link.icon;
+              const isActive = window.location.pathname.includes(link.path);
+              return (
+                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className={cn("w-full justify-start", isActive && "bg-secondary")}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {link.name}
+                  </Button>
+                </Link>
+              )
+            })}
+          </div>
           <Button onClick={handleExport} variant="ghost" size="sm" className="w-full justify-start">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Export Report
