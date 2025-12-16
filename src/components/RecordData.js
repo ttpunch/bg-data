@@ -46,14 +46,14 @@ const RecordData = () => {
         if (file) {
           const formData = new FormData();
           formData.append("image", file);
-          const imgResponse = await axios.post(`${process.env.REACT_APP_API_URL}/image`, formData);
+          const imgResponse = await axios.post(`${process.env.REACT_APP_API_URL}/api/image`, formData);
           imageLink = imgResponse.data.link;
         }
 
         const currentData = { ...pushData, ...(imageLink && { image: imageLink }) };
         setPushData(currentData);
 
-        await axios.post(`${process.env.REACT_APP_API_URL}/submit-form`, currentData);
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/submit-form`, currentData);
         setPushData({
           mcdata: "",
           bgdetail: "",

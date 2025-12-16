@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import Contact from "./Contact";
@@ -7,7 +7,7 @@ import RecordData from "./RecordData";
 import Editdata from "./Editdata";
 import TotalData from "./TotalData";
 import Searchmachine from "./Searchmachine";
-import Home from "./Home";
+
 import Logout from "./Logout";
 import Login from "./Login";
 import SearchData from "./SearchData";
@@ -35,7 +35,7 @@ const Layout = () => {
                 <Route path="/recorddata" element={<RecordData />} />
                 <Route path="/editdata" element={<Editdata />} />
                 <Route path="/machineroute" element={<Searchmachine />} />
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<Navigate to="/machinedata" replace />} />
                 <Route path='/logout' element={<Logout />} />
                 <Route path='/search' element={<SearchData />} />
               </Routes>

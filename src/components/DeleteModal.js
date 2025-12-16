@@ -16,11 +16,11 @@ const customStyles = {
   },
 };
 
-const DeleteModal = ({machine_id}) => {
+const DeleteModal = ({ machine_id }) => {
   const [isOpen, setIsOpen] = useState(false);
 
 
-  
+
   const openModal = () => {
     setIsOpen(true);
   };
@@ -29,17 +29,17 @@ const DeleteModal = ({machine_id}) => {
     setIsOpen(false);
   };
 
-  const handleOk = async() => {
+  const handleOk = async () => {
 
-   await axios.delete(`${process.env.REACT_APP_API_URL}/editdata/${machine_id}`)
+    await axios.delete(`${process.env.REACT_APP_API_URL}/api/editdata/${machine_id}`)
       .then(response => {
-       
+
         alert('Data Deleted successfully!');
       })
       .catch(error => {
         console.error(error);
       });
-  
+
     closeModal();
   };
 
@@ -49,7 +49,7 @@ const DeleteModal = ({machine_id}) => {
 
   return (
     <div >
-      <button className="bg-red-200 rounded-sm px-2"onClick={openModal}>Delete</button>
+      <button className="bg-red-200 rounded-sm px-2" onClick={openModal}>Delete</button>
       <Modal
         isOpen={isOpen}
         onRequestClose={closeModal}
@@ -58,11 +58,11 @@ const DeleteModal = ({machine_id}) => {
       >
         <form onSubmit={handleOk}>
           <label className='text-red-800 block' >
-              Deleting Data..           
+            Deleting Data..
           </label>
           <div className="modal-footer mt-4">
-            <button className="bg-red-400 rounded-lg px-2"type="button" onClick={handleCancel}>Cancel</button>
-            <button className="bg-teal-200 rounded-lg px-2 ml-4 "type="submit">Are you sure !!</button>
+            <button className="bg-red-400 rounded-lg px-2" type="button" onClick={handleCancel}>Cancel</button>
+            <button className="bg-teal-200 rounded-lg px-2 ml-4 " type="submit">Are you sure !!</button>
           </div>
         </form>
       </Modal>

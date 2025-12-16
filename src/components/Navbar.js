@@ -38,7 +38,7 @@ const Navbar = () => {
   const handleExport = async () => {
     const promise = new Promise(async (resolve, reject) => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/machinedata`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/machinedata`);
         const workSheet = XLSX.utils.json_to_sheet(res.data);
         const workBook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workBook, workSheet, "Breakdown Data");
