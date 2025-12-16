@@ -55,7 +55,7 @@ const EditMachineWiseData = ({ machine_no }) => {
                     })}
                   </TableCell>
                   <TableCell>
-                    <SaveEditDataModal machine_id={res._id} />
+                    <SaveEditDataModal machine_id={res._id} initialData={res.breakdown} />
                   </TableCell>
                   <TableCell>
                     <DeleteModal machine_id={res._id} />

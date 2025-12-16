@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useTable, usePagination } from "react-table";
+import { useTable, usePagination, useGlobalFilter } from "react-table";
 import {
   Table,
   TableBody,
@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "./ui/table";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 const columns = [
   {
@@ -81,12 +82,14 @@ const TotalData = () => {
     canNextPage,
     pageOptions,
     setPageSize,
-    state: { pageIndex, pageSize }
+    setGlobalFilter,
+    state: { pageIndex, pageSize, globalFilter }
   } = useTable({
     columns,
     data: mongodata,
     initialState: { pageSize: 12 }
   },
+    useGlobalFilter,
     usePagination);
 
   if (isLoading) {
@@ -102,6 +105,14 @@ const TotalData = () => {
   } else {
     return (
       <div className="w-full space-y-4">
+        <div className="flex items-center py-4">
+          <Input
+            placeholder="Search all columns..."
+            value={globalFilter || ""}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            className="max-w-sm"
+          />
+        </div>
         <div className="rounded-md border bg-card">
           <Table {...getTableProps()}>
             <TableHeader>
@@ -139,7 +150,7 @@ const TotalData = () => {
           </div>
           <div className="flex items-center space-x-2">
             <select
-              className="h-8 w-[70px] rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 w-[70px] rounded-md border border-input bg-background text-foreground px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));

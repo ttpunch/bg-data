@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Modal from 'react-modal';
 import axios from 'axios';
+import { Button } from './ui/button';
 
 
 
@@ -49,7 +50,9 @@ const DeleteModal = ({ machine_id }) => {
 
   return (
     <div >
-      <button className="bg-red-200 rounded-sm px-2" onClick={openModal}>Delete</button>
+      <Button variant="destructive" size="icon" className="h-8 w-8" onClick={openModal}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+      </Button>
       <Modal
         isOpen={isOpen}
         onRequestClose={closeModal}
@@ -60,9 +63,9 @@ const DeleteModal = ({ machine_id }) => {
           <label className='text-red-800 block' >
             Deleting Data..
           </label>
-          <div className="modal-footer mt-4">
-            <button className="bg-red-400 rounded-lg px-2" type="button" onClick={handleCancel}>Cancel</button>
-            <button className="bg-teal-200 rounded-lg px-2 ml-4 " type="submit">Are you sure !!</button>
+          <div className="modal-footer mt-4 flex justify-end gap-2">
+            <Button variant="ghost" type="button" onClick={handleCancel}>Cancel</Button>
+            <Button variant="destructive" type="submit">Delete</Button>
           </div>
         </form>
       </Modal>

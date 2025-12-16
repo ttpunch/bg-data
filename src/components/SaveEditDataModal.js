@@ -1,38 +1,33 @@
 
-import { useState } from 'react';
-import Modal from 'react-modal';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog"
+import { Textarea } from './ui/textarea';
 
 
-
-const customStyles = {
-  content: {
-    width: '500px',
-    top: '50%',
-    left: '50%',
-    right: 'auto',
-    bottom: 'auto',
-    marginRight: '-50%',
-    transform: 'translate(-50%, -50%)',
-  },
-};
-
-const SaveEditDataModal = ({ machine_id }) => {
+const SaveEditDataModal = ({ machine_id, initialData }) => {
   const [updating, setupdating] = useState(false)
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(initialData || '');
+
+  useEffect(() => {
+    if (isOpen) {
+      setInputValue(initialData || '');
+    }
+  }, [isOpen, initialData]);
 
 
   const handleInputChange = (event) => {
     setInputValue(event.target.value);
-  };
-
-  const openModal = () => {
-    setIsOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsOpen(false);
   };
 
   const handleOk = async (e) => {
@@ -43,6 +38,7 @@ const SaveEditDataModal = ({ machine_id }) => {
       .then(response => {
 
         alert('Data updated successfully!');
+        setIsOpen(false);
       })
       .catch(error => {
         console.error(error);
@@ -50,36 +46,44 @@ const SaveEditDataModal = ({ machine_id }) => {
       .finally(() => {
         setupdating(false);
       });
-
-    closeModal();
-  };
-
-  const handleCancel = () => {
-    closeModal();
   };
 
   return (
-    <div >
-      <button className="bg-red-200 rounded-sm px-2" onClick={openModal}>Edit</button>
-      <Modal
-        isOpen={isOpen}
-        onRequestClose={closeModal}
-        contentClassName="custom-modal"
-        style={customStyles}
-      >
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">Edit</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleOk}>
-          <label className='block' >
-            Enter Data:
-          </label>
-          <textarea className="border-2 resize p-2 w-full" type="text" value={inputValue} onChange={handleInputChange} required />
-          <div className="modal-footer">
-            <button className="bg-red-400 rounded-lg px-2" type="button" onClick={handleCancel}>Cancel</button>
-            <button className="bg-teal-200 rounded-lg px-2 ml-4 " type="submit">OK</button>
+          <DialogHeader>
+            <DialogTitle>Edit Breakdown Data</DialogTitle>
+            <DialogDescription>
+              Make changes to the breakdown details below. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="breakdown" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Breakdown Detail
+              </label>
+              <Textarea
+                id="breakdown"
+                value={inputValue}
+                onChange={handleInputChange}
+                className="col-span-3 min-h-[100px]"
+                required
+              />
+            </div>
           </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={updating}>
+              {updating ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
         </form>
-      </Modal>
-      {updating && <h1 className="bg-slate-600">updating ...</h1>}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
