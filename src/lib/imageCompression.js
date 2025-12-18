@@ -8,7 +8,7 @@
  * @returns {Promise<Blob>} - Compressed WebP blob
  */
 export const compressImage = (file, options = {}) => {
-    const { maxWidth = 1200, maxHeight = 1200, quality = 0.8 } = options;
+    const { maxWidth = 1200, maxHeight = 1200, quality = 0.9 } = options;
 
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
