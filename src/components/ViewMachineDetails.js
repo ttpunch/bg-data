@@ -69,14 +69,26 @@ const ViewMachineDetails = () => {
     };
 
     const handleSave = async () => {
+        // Auto-add any pending specification in the input fields
+        let updatedEditData = { ...editData };
+        if (newSpec.key.trim() && newSpec.value.trim()) {
+            updatedEditData = {
+                ...editData,
+                specifications: [...(editData.specifications || []), { ...newSpec }]
+            };
+            setEditData(updatedEditData);
+            setNewSpec({ key: "", value: "" });
+        }
+
         setIsSaving(true);
         const promise = new Promise(async (resolve, reject) => {
             try {
                 const response = await axios.put(
                     `${process.env.REACT_APP_API_URL}/api/machine-details/${id}`,
-                    editData
+                    updatedEditData
                 );
                 setMachine(response.data);
+                setEditData(response.data);
                 setIsEditing(false);
                 resolve("Machine details updated successfully");
             } catch (error) {
@@ -206,6 +218,21 @@ const ViewMachineDetails = () => {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    {/* Machine Image */}
+                    {machine.image && (
+                        <div>
+                            <h3 className="text-sm font-medium mb-2">Machine Image</h3>
+                            <a href={machine.image} target="_blank" rel="noopener noreferrer" className="inline-block">
+                                <img
+                                    src={machine.image}
+                                    alt="Machine"
+                                    className="h-20 w-auto rounded-md border object-cover hover:opacity-90 transition-opacity cursor-pointer"
+                                />
+                                <span className="text-xs text-muted-foreground mt-1 block">Click to view full size</span>
+                            </a>
+                        </div>
+                    )}
+
                     {/* Specifications */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
@@ -221,14 +248,14 @@ const ViewMachineDetails = () => {
                                     <thead className="bg-muted">
                                         <tr>
                                             <th className="text-left p-3 text-sm font-medium">Field</th>
-                                            <th className="text-left p-3 text-sm font-medium">Value</th>
+                                            <th className="text-left p-3 text-sm font-medium">Value / Image</th>
                                             {isEditing && <th className="w-12"></th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {editData.specifications.map((spec, index) => (
                                             <tr key={index} className="border-t">
-                                                <td className="p-3 font-medium">
+                                                <td className="p-3 font-medium align-top">
                                                     {isEditing ? (
                                                         <Input
                                                             value={spec.key}
@@ -242,16 +269,28 @@ const ViewMachineDetails = () => {
                                                 <td className="p-3 text-muted-foreground">
                                                     {isEditing ? (
                                                         <Input
-                                                            value={spec.value}
+                                                            value={spec.value || ""}
                                                             onChange={(e) => handleSpecChange(index, "value", e.target.value)}
                                                             className="h-8"
+                                                            placeholder="Value (optional if image)"
                                                         />
                                                     ) : (
-                                                        spec.value
+                                                        <div className="space-y-2">
+                                                            {spec.value && <span>{spec.value}</span>}
+                                                            {spec.image && (
+                                                                <a href={spec.image} target="_blank" rel="noopener noreferrer" className="block">
+                                                                    <img
+                                                                        src={spec.image}
+                                                                        alt={spec.key}
+                                                                        className="h-16 w-auto rounded border object-cover hover:opacity-90 cursor-pointer"
+                                                                    />
+                                                                </a>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </td>
                                                 {isEditing && (
-                                                    <td className="p-3">
+                                                    <td className="p-3 align-top">
                                                         <Button
                                                             type="button"
                                                             variant="ghost"

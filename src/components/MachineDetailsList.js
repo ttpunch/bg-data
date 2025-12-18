@@ -53,17 +53,17 @@ const MachineDetailsList = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="w-full space-y-4">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Machine Details</h1>
-                    <p className="text-muted-foreground">
+                    <h1 className="text-xl font-semibold">Machine Details</h1>
+                    <p className="text-sm text-muted-foreground">
                         Manage machine specifications and technical details
                     </p>
                 </div>
                 <Link to="/machine-details/add">
-                    <Button className="gap-2">
+                    <Button size="sm" className="gap-2">
                         <Plus className="h-4 w-4" />
                         Add Machine
                     </Button>
@@ -71,11 +71,11 @@ const MachineDetailsList = () => {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-md">
+            <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                     placeholder="Search by machine no, name, or location..."
-                    className="pl-10"
+                    className="pl-9 h-9"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -83,10 +83,10 @@ const MachineDetailsList = () => {
 
             {/* Machine Cards Grid */}
             {filteredMachines.length === 0 ? (
-                <Card className="p-8">
+                <Card className="p-6">
                     <div className="text-center text-muted-foreground">
-                        <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium">No machines found</p>
+                        <Settings className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                        <p className="font-medium">No machines found</p>
                         <p className="text-sm">
                             {searchTerm
                                 ? "Try a different search term"
@@ -95,34 +95,34 @@ const MachineDetailsList = () => {
                     </div>
                 </Card>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredMachines.map((machine) => (
                         <Link key={machine._id} to={`/machine-details/${machine._id}`}>
-                            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <Settings className="h-5 w-5 text-primary" />
+                            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                                <CardHeader className="p-4 pb-2">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Settings className="h-4 w-4 text-primary" />
                                         {machine.machine_no}
                                     </CardTitle>
                                     {machine.machine_name && (
-                                        <CardDescription className="text-base font-medium">
+                                        <CardDescription className="text-sm">
                                             {machine.machine_name}
                                         </CardDescription>
                                     )}
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="p-4 pt-0">
                                     {machine.location && (
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                                            <MapPin className="h-4 w-4" />
+                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                                            <MapPin className="h-3 w-3" />
                                             {machine.location}
                                         </div>
                                     )}
-                                    <div className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center justify-between text-xs">
                                         <span className="text-muted-foreground">
-                                            {machine.specifications?.length || 0} specifications
+                                            {machine.specifications?.length || 0} specs
                                         </span>
-                                        <span className="text-primary hover:underline">
-                                            View Details →
+                                        <span className="text-primary">
+                                            View →
                                         </span>
                                     </div>
                                 </CardContent>

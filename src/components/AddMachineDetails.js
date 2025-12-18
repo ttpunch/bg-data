@@ -4,8 +4,9 @@ import axios from "axios";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Plus, Trash2, ArrowLeft, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
+import { compressImage, formatFileSize } from "../lib/imageCompression";
 
 const AddMachineDetails = () => {
     const navigate = useNavigate();
@@ -13,27 +14,70 @@ const AddMachineDetails = () => {
         machine_no: "",
         machine_name: "",
         location: "",
-        image: "",
     });
     const [specifications, setSpecifications] = useState([]);
-    const [newSpec, setNewSpec] = useState({ key: "", value: "" });
+    const [newSpec, setNewSpec] = useState({ key: "", value: "", image: null, imagePreview: null });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handleNewSpecImageChange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                // Compress image to WebP format
+                const originalSize = file.size;
+                const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
+                const compressedSize = compressedFile.size;
+
+                console.log(`Image compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressedSize)}`);
+
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setNewSpec({ ...newSpec, image: compressedFile, imagePreview: reader.result });
+                };
+                reader.readAsDataURL(compressedFile);
+            } catch (error) {
+                console.error("Compression failed, using original:", error);
+                // Fallback to original if compression fails
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setNewSpec({ ...newSpec, image: file, imagePreview: reader.result });
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    };
+
+    const removeNewSpecImage = () => {
+        setNewSpec({ ...newSpec, image: null, imagePreview: null });
+    };
+
     const handleAddSpec = () => {
-        if (newSpec.key.trim() && newSpec.value.trim()) {
-            setSpecifications([...specifications, { ...newSpec }]);
-            setNewSpec({ key: "", value: "" });
+        if (newSpec.key.trim() && (newSpec.value.trim() || newSpec.image)) {
+            setSpecifications([...specifications, {
+                key: newSpec.key,
+                value: newSpec.value,
+                image: newSpec.image,
+                imagePreview: newSpec.imagePreview
+            }]);
+            setNewSpec({ key: "", value: "", image: null, imagePreview: null });
         } else {
-            toast.error("Please enter both key and value for the specification");
+            toast.error("Please enter field name and either value or image");
         }
     };
 
     const handleRemoveSpec = (index) => {
         setSpecifications(specifications.filter((_, i) => i !== index));
+    };
+
+    const uploadImage = async (file) => {
+        const formData = new FormData();
+        formData.append("image", file);
+        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/image`, formData);
+        return response.data.link;
     };
 
     const handleSubmit = async (e) => {
@@ -43,12 +87,33 @@ const AddMachineDetails = () => {
             return;
         }
 
+        // Auto-add any pending specification
+        let finalSpecs = [...specifications];
+        if (newSpec.key.trim() && (newSpec.value.trim() || newSpec.image)) {
+            finalSpecs = [...finalSpecs, { ...newSpec }];
+        }
+
         setIsSubmitting(true);
         const promise = new Promise(async (resolve, reject) => {
             try {
+                // Upload images for each spec that has one
+                const processedSpecs = await Promise.all(
+                    finalSpecs.map(async (spec) => {
+                        let imageUrl = "";
+                        if (spec.image) {
+                            imageUrl = await uploadImage(spec.image);
+                        }
+                        return {
+                            key: spec.key,
+                            value: spec.value || "",
+                            image: imageUrl
+                        };
+                    })
+                );
+
                 await axios.post(`${process.env.REACT_APP_API_URL}/api/machine-details`, {
                     ...formData,
-                    specifications,
+                    specifications: processedSpecs,
                 });
                 resolve("Machine details saved successfully");
                 navigate("/machine-details");
@@ -69,7 +134,6 @@ const AddMachineDetails = () => {
 
     return (
         <div className="max-w-2xl mx-auto space-y-6">
-            {/* Back Button */}
             <Button variant="ghost" onClick={() => navigate("/machine-details")} className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Machine List
@@ -138,59 +202,93 @@ const AddMachineDetails = () => {
 
                             {/* Current Specifications */}
                             {specifications.length > 0 && (
-                                <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full">
-                                        <thead className="bg-muted">
-                                            <tr>
-                                                <th className="text-left p-3 text-sm font-medium">Field</th>
-                                                <th className="text-left p-3 text-sm font-medium">Value</th>
-                                                <th className="w-12"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {specifications.map((spec, index) => (
-                                                <tr key={index} className="border-t">
-                                                    <td className="p-3 font-medium">{spec.key}</td>
-                                                    <td className="p-3 text-muted-foreground">{spec.value}</td>
-                                                    <td className="p-3">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleRemoveSpec(index)}
-                                                            className="h-8 w-8 text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                <div className="space-y-2">
+                                    {specifications.map((spec, index) => (
+                                        <div key={index} className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm">{spec.key}</div>
+                                                {spec.value && (
+                                                    <div className="text-sm text-muted-foreground truncate">{spec.value}</div>
+                                                )}
+                                            </div>
+                                            {spec.imagePreview && (
+                                                <img
+                                                    src={spec.imagePreview}
+                                                    alt="Spec"
+                                                    className="h-10 w-10 rounded border object-cover flex-shrink-0"
+                                                />
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleRemoveSpec(index)}
+                                                className="h-8 w-8 text-destructive hover:text-destructive flex-shrink-0"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
 
                             {/* Add New Specification */}
-                            <div className="flex gap-2 items-end">
-                                <div className="flex-1">
-                                    <label className="text-sm font-medium mb-1 block">Field Name</label>
-                                    <Input
-                                        placeholder="e.g., Spindle Speed"
-                                        value={newSpec.key}
-                                        onChange={(e) => setNewSpec({ ...newSpec, key: e.target.value })}
-                                    />
+                            <div className="space-y-3 p-3 border rounded-lg border-dashed">
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-sm font-medium mb-1 block">Field Name</label>
+                                        <Input
+                                            placeholder="e.g., Spindle Speed or Name Plate"
+                                            value={newSpec.key}
+                                            onChange={(e) => setNewSpec({ ...newSpec, key: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-sm font-medium mb-1 block">Value (optional if image)</label>
+                                        <Input
+                                            placeholder="e.g., 8000 RPM"
+                                            value={newSpec.value}
+                                            onChange={(e) => setNewSpec({ ...newSpec, value: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex-1">
-                                    <label className="text-sm font-medium mb-1 block">Value</label>
-                                    <Input
-                                        placeholder="e.g., 8000 RPM"
-                                        value={newSpec.value}
-                                        onChange={(e) => setNewSpec({ ...newSpec, value: e.target.value })}
-                                    />
+                                <div className="flex items-center gap-3">
+                                    {newSpec.imagePreview ? (
+                                        <div className="relative">
+                                            <img
+                                                src={newSpec.imagePreview}
+                                                alt="Preview"
+                                                className="h-12 w-auto rounded border object-cover"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                size="icon"
+                                                className="absolute -top-2 -right-2 h-5 w-5"
+                                                onClick={removeNewSpecImage}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <label className="cursor-pointer">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md hover:bg-muted transition-colors text-sm">
+                                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                                <span className="text-muted-foreground">Add Image</span>
+                                            </div>
+                                            <Input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={handleNewSpecImageChange}
+                                            />
+                                        </label>
+                                    )}
+                                    <Button type="button" onClick={handleAddSpec} size="sm" variant="secondary" className="gap-1">
+                                        <Plus className="h-4 w-4" />
+                                        Add Field
+                                    </Button>
                                 </div>
-                                <Button type="button" onClick={handleAddSpec} size="icon" variant="secondary">
-                                    <Plus className="h-4 w-4" />
-                                </Button>
                             </div>
                         </div>
 
