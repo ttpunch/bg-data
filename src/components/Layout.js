@@ -7,6 +7,9 @@ import RecordData from "./RecordData";
 import Editdata from "./Editdata";
 import TotalData from "./TotalData";
 import Searchmachine from "./Searchmachine";
+import MachineDetailsList from "./MachineDetailsList";
+import AddMachineDetails from "./AddMachineDetails";
+import ViewMachineDetails from "./ViewMachineDetails";
 
 import Logout from "./Logout";
 import Login from "./Login";
@@ -35,6 +38,9 @@ const Layout = () => {
                 <Route path="/recorddata" element={<RecordData />} />
                 <Route path="/editdata" element={<Editdata />} />
                 <Route path="/machineroute" element={<Searchmachine />} />
+                <Route path="/machine-details" element={<MachineDetailsList />} />
+                <Route path="/machine-details/add" element={<AddMachineDetails />} />
+                <Route path="/machine-details/:id" element={<ViewMachineDetails />} />
                 <Route path="/" element={<Navigate to="/machinedata" replace />} />
                 <Route path='/logout' element={<Logout />} />
                 <Route path='/search' element={<SearchData />} />

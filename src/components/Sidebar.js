@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Database, Edit, HardDrive, Search } from "lucide-react"
+import { LayoutDashboard, Database, Edit, HardDrive, Search, Settings } from "lucide-react"
 import { cn } from "../lib/utils"
 import { Button } from "./ui/button"
 
@@ -12,6 +12,7 @@ const Sidebar = () => {
     { name: "Record Data", path: "/recorddata", icon: Database },
     { name: "Edit Data", path: "/editdata", icon: Edit },
     { name: "Machine Data", path: "/machineroute", icon: HardDrive },
+    { name: "Machine Details", path: "/machine-details", icon: Settings },
     { name: "Keyword Search", path: "/search", icon: Search },
   ];
 

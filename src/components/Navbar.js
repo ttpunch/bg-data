@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import jwt_decode from "jwt-decode";
-import { Menu, User, LogOut, X, FileSpreadsheet, LayoutDashboard, Database, Edit, HardDrive, Search } from "lucide-react";
+import { Menu, User, LogOut, X, FileSpreadsheet, LayoutDashboard, Database, Edit, HardDrive, Search, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import axios from "axios";
@@ -19,6 +19,7 @@ const Navbar = () => {
     { name: "Record Data", path: "/recorddata", icon: Database },
     { name: "Edit Data", path: "/editdata", icon: Edit },
     { name: "Machine Data", path: "/machineroute", icon: HardDrive },
+    { name: "Machine Details", path: "/machine-details", icon: Settings },
     { name: "Keyword Search", path: "/search", icon: Search },
   ];
 
