@@ -23,7 +23,7 @@ const ViewMachineDetails = () => {
 
     const fetchMachine = async () => {
         try {
-            const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/machine-details/${id}`);
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/machine-details/${id}`);
             setMachine(response.data);
             setEditData(response.data);
         } catch (error) {
@@ -84,7 +84,7 @@ const ViewMachineDetails = () => {
         const promise = new Promise(async (resolve, reject) => {
             try {
                 const response = await axios.put(
-                    `${process.env.REACT_APP_API_URL}/api/machine-details/${id}`,
+                    `${import.meta.env.VITE_API_URL}/api/machine-details/${id}`,
                     updatedEditData
                 );
                 setMachine(response.data);
@@ -111,7 +111,7 @@ const ViewMachineDetails = () => {
 
         const promise = new Promise(async (resolve, reject) => {
             try {
-                await axios.delete(`${process.env.REACT_APP_API_URL}/api/machine-details/${id}`);
+                await axios.delete(`${import.meta.env.VITE_API_URL}/api/machine-details/${id}`);
                 resolve("Machine deleted successfully");
                 navigate("/machine-details");
             } catch (error) {

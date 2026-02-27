@@ -76,7 +76,7 @@ const AddMachineDetails = () => {
     const uploadImage = async (file) => {
         const formData = new FormData();
         formData.append("image", file);
-        const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/image`, formData);
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/image`, formData);
         return response.data.link;
     };
 
@@ -111,7 +111,7 @@ const AddMachineDetails = () => {
                     })
                 );
 
-                await axios.post(`${process.env.REACT_APP_API_URL}/api/machine-details`, {
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/machine-details`, {
                     ...formData,
                     specifications: processedSpecs,
                 });

@@ -33,7 +33,7 @@ const MachineDetailsList = () => {
 
     const fetchMachines = async () => {
         try {
-            const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/machine-details`);
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/machine-details`);
             setMachines(response.data);
             setFilteredMachines(response.data);
         } catch (error) {

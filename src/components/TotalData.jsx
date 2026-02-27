@@ -64,7 +64,7 @@ const TotalData = () => {
 
 
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_API_URL}/api/machinedata`).then((res) => {
+    axios.get(`${import.meta.env.VITE_API_URL}/api/machinedata`).then((res) => {
       getData(res.data);
       setisLoading(false);
     });

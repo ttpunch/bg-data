@@ -14,6 +14,7 @@ import ViewMachineDetails from "./ViewMachineDetails";
 import Logout from "./Logout";
 import Login from "./Login";
 import SearchData from "./SearchData";
+import AlarmCalculator from "./AlarmCalculator";
 
 
 const Layout = () => {
@@ -44,6 +45,7 @@ const Layout = () => {
                 <Route path="/" element={<Navigate to="/machinedata" replace />} />
                 <Route path='/logout' element={<Logout />} />
                 <Route path='/search' element={<SearchData />} />
+                <Route path='/alarm-calc' element={<AlarmCalculator />} />
               </Routes>
             </main>
           </div>
