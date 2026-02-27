@@ -34,7 +34,7 @@ const SaveEditDataModal = ({ machine_id, initialData }) => {
     e.preventDefault();
     setupdating(true)
 
-    await axios.put(`${process.env.REACT_APP_API_URL}/api/editdata/${machine_id}`, { breakdown: inputValue })
+    await axios.put(`${import.meta.env.VITE_API_URL}/api/editdata/${machine_id}`, { breakdown: inputValue })
       .then(response => {
 
         alert('Data updated successfully!');

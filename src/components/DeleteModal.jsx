@@ -32,7 +32,7 @@ const DeleteModal = ({ machine_id }) => {
 
   const handleOk = async () => {
 
-    await axios.delete(`${process.env.REACT_APP_API_URL}/api/editdata/${machine_id}`)
+    await axios.delete(`${import.meta.env.VITE_API_URL}/api/editdata/${machine_id}`)
       .then(response => {
 
         alert('Data Deleted successfully!');
