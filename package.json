@@ -2,6 +2,7 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-popover": "^1.1.15",
@@ -52,6 +53,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.27",
+    "browserslist": "^4.28.1",
+    "caniuse-lite": "^1.0.30001774",
     "tailwindcss": "^3.2.4",
     "vite": "^7.3.1"
   }
