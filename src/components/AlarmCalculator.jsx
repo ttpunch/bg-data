@@ -26,6 +26,11 @@ const Legend = () => (
             <span className="text-blue-600 font-medium">Blue</span>
             <span className="text-muted-foreground">= OM / Operator Message — clears when bit resets</span>
         </span>
+        <span className="flex items-center gap-1.5 text-sm">
+            <span className="inline-block w-3 h-3 rounded-full bg-orange-500" />
+            <span className="text-orange-600 font-medium">Info</span>
+            <span className="text-muted-foreground">MD14516 configures alarm response and cancel criteria</span>
+        </span>
     </div>
 );
 
@@ -167,6 +172,47 @@ function db600toAlarm(input, startByte) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+//  SIEMENS 828D User Alarms (700000 - 700247)
+//  Mapped to DB1600.DBX0.0 through DB1600.DBX30.7
+// ═══════════════════════════════════════════════════════════════════════════════
+function alarm828DToDb(str) {
+    const alarm = parseInt(str, 10);
+    if (isNaN(alarm) || alarm < 700000 || alarm > 700247)
+        return { error: "Alarm must be between 700000 and 700247" };
+
+    const offset = alarm - 700000;
+    const byte_ = Math.floor(offset / 8);
+    const bit = offset % 8;
+    return {
+        byte: byte_, bit, address: `DB1600.DBX${byte_}.${bit}`,
+        type: "User Alarm", label: "Siemens 828D User Alarm"
+    };
+}
+
+function db828DToAlarm(input) {
+    const m = input.match(/(\d+)\.(\d)/);
+    if (!m) return { error: 'Enter as "byte.bit" e.g. 0.0 or DB1600.DBX0.0' };
+
+    let byte_ = parseInt(m[1], 10);
+    const bit = parseInt(m[2], 10);
+
+    if (byte_ === 1600) return { error: "Please enter the byte offset, not the DB number. E.g. '0.0' for DB1600.DBX0.0" };
+
+    if (bit < 0 || bit > 7) return { error: "Bit must be 0–7" };
+    if (byte_ < 0 || byte_ > 30) return { error: "Byte must be 0–30 for 828D 700000 series (DB1600)" };
+
+    const offset = (byte_ * 8) + bit;
+    const alarm = 700000 + offset;
+
+    if (alarm > 700247) return { error: "Alarm exceeds 700247 (max 828D user alarm)" };
+
+    return {
+        alarm, address: `DB1600.DBX${byte_}.${bit}`,
+        type: "User Alarm", label: "Siemens 828D User Alarm"
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 //  REUSABLE CALC SECTION (700000 series)
 // ═══════════════════════════════════════════════════════════════════════════════
 const CalcSection = ({ title, icon: Icon, description, leftLabel, leftPlaceholder, leftHint, leftFormula,
@@ -259,8 +305,8 @@ const Axis600Section = () => {
                             key={m}
                             onClick={() => { setMode(m); setLeftRes(null); setRightRes(null); }}
                             className={`px-4 py-1.5 transition-colors ${mode === m
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-background text-muted-foreground hover:bg-muted"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background text-muted-foreground hover:bg-muted"
                                 }`}
                         >
                             {m}
@@ -351,17 +397,17 @@ const AlarmCalculator = () => (
         <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
                 <ArrowRightLeft className="h-6 w-6 text-primary" />
-                Siemens 840D Alarm ↔ DB Calculator
+                Siemens Alarm ↔ DB Calculator
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-                Bidirectional conversion based on official Siemens 840D documentation
+                Bidirectional conversions for Siemens 840D and 828D.
             </p>
             <Legend />
         </div>
 
-        {/* 700000 User Alarms */}
+        {/* 840D 700000 User Alarms */}
         <CalcSection
-            title="User PLC Alarms — 700000 to 703163"
+            title="Siemens 840D: User PLC Alarms — 700000 to 703163"
             icon={ArrowRightLeft}
             description="32 User Ranges (0–31). Each range: offsets 00–31=FM (red), 32–63=OM (blue). Offsets 64–99 unused."
             leftLabel="Alarm No. → DB Address"
@@ -388,10 +434,76 @@ const AlarmCalculator = () => (
             onRight={db700toAlarm}
         />
 
+        <div className="border-t mt-8 mb-4 border-dashed" />
+
+        {/* 828D 700000 User Alarms */}
+        <CalcSection
+            title="Siemens 828D: User PLC Alarms — 700000 to 700247"
+            icon={ArrowRightLeft}
+            description="248 User Alarms. Mapped sequentially starting from DB1600.DBX0.0."
+            leftLabel="Alarm No. → DB Address"
+            leftPlaceholder="e.g. 700000 or 700140"
+            leftHint="Must be between 700000 and 700247"
+            leftFormula={[
+                "offset = Alarm − 700000",
+                "Byte   = ⌊offset ÷ 8⌋",
+                "Bit    = offset mod 8",
+                "Address = DB1600.DBX[Byte].[Bit]"
+            ]}
+            rightLabel="DB Address → Alarm No."
+            rightPlaceholder="e.g. 0.0 or DB1600.DBX0.0"
+            rightHint="Byte offset 0–30 in DB1600"
+            rightFormula={[
+                "offset = (Byte × 8) + Bit",
+                "Alarm  = 700000 + offset"
+            ]}
+            onLeft={alarm828DToDb}
+            onRight={db828DToAlarm}
+        />
         <div className="border-t" />
 
         {/* 600000 Axis/Spindle — with mode toggle */}
         <Axis600Section />
+
+        <div className="border-t mt-8 mb-4 border-dashed" />
+
+        {/* MD14516 Info Section */}
+        <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b pb-3">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                <div>
+                    <h2 className="text-lg font-bold">Siemens 828D Machine Data 14516: Alarm Response & Cancel Criteria</h2>
+                    <p className="text-xs text-muted-foreground">
+                        How the 828D system responds when a User PLC Alarm is triggered.
+                    </p>
+                </div>
+            </div>
+
+            <Card className="shadow-sm border-orange-200 dark:border-orange-950">
+                <CardContent className="pt-6">
+                    <p className="text-sm font-medium mb-3 pb-2 border-b">
+                        Parameter: <code className="bg-muted px-1.5 py-0.5 rounded text-primary">MD14516[x]</code> (where x = Alarm No. − 700000)
+                    </p>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm mt-4">
+                        <div className="space-y-2">
+                            <h3 className="font-bold text-foreground opacity-80 uppercase text-xs tracking-wider">Bit Meaning (Response)</h3>
+                            <ul className="space-y-1.5 text-muted-foreground">
+                                <li><span className="font-mono text-primary mr-2">Bit 0:</span> NC Start disable</li>
+                                <li><span className="font-mono text-primary mr-2">Bit 1:</span> Read-in disable</li>
+                                <li><span className="font-mono text-primary mr-2">Bit 2:</span> Feed disable for all axes</li>
+                                <li><span className="font-mono text-primary mr-2">Bit 3:</span> Emergency stop</li>
+                                <li><span className="font-mono text-primary mr-2">Bit 4:</span> PLC STOP</li>
+                            </ul>
+                        </div>
+                        <div className="bg-muted/50 p-4 rounded-lg flex flex-col justify-center">
+                            <p className="italic text-muted-foreground">
+                                "If no alarm response (bits 0 to 4) is activated for a specific user alarm, it functions merely as a <strong>Display message</strong> without triggering any system actions."
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
 
     </div>
 );
