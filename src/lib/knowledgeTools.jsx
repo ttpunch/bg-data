@@ -1,4 +1,4 @@
-import { BookOpenText, Crosshair } from "lucide-react";
+import { BookOpenText, Crosshair, Repeat } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  KNOWLEDGE TOOL REGISTRY
@@ -19,5 +19,12 @@ export const knowledgeTools = [
         description: "Interactive toolpath simulator with live visualization, plus Fanuc vs Siemens dialect comparison.",
         icon: Crosshair,
         path: "/knowledge/gcode-trainer",
+    },
+    {
+        id: "code-converter",
+        title: "Siemens ↔ Fanuc Converter",
+        description: "Translate part programs between Siemens and Fanuc dialects, with manual-review flags for cycles and macros.",
+        icon: Repeat,
+        path: "/knowledge/code-converter",
     },
 ];

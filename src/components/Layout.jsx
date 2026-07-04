@@ -18,6 +18,7 @@ import AlarmCalculator from "./AlarmCalculator";
 import Knowledge from "./Knowledge";
 import GMCodeGuide from "./GMCodeGuide";
 import GCodeTrainer from "./GCodeTrainer";
+import CodeConverter from "./CodeConverter";
 
 
 const Layout = () => {
@@ -52,6 +53,7 @@ const Layout = () => {
                 <Route path='/knowledge' element={<Knowledge />} />
                 <Route path='/knowledge/gm-code-guide' element={<GMCodeGuide />} />
                 <Route path='/knowledge/gcode-trainer' element={<GCodeTrainer />} />
+                <Route path='/knowledge/code-converter' element={<CodeConverter />} />
               </Routes>
             </main>
           </div>
