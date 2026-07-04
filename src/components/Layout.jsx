@@ -15,6 +15,9 @@ import Logout from "./Logout";
 import Login from "./Login";
 import SearchData from "./SearchData";
 import AlarmCalculator from "./AlarmCalculator";
+import Knowledge from "./Knowledge";
+import GMCodeGuide from "./GMCodeGuide";
+import GCodeTrainer from "./GCodeTrainer";
 
 
 const Layout = () => {
@@ -46,6 +49,9 @@ const Layout = () => {
                 <Route path='/logout' element={<Logout />} />
                 <Route path='/search' element={<SearchData />} />
                 <Route path='/alarm-calc' element={<AlarmCalculator />} />
+                <Route path='/knowledge' element={<Knowledge />} />
+                <Route path='/knowledge/gm-code-guide' element={<GMCodeGuide />} />
+                <Route path='/knowledge/gcode-trainer' element={<GCodeTrainer />} />
               </Routes>
             </main>
           </div>
