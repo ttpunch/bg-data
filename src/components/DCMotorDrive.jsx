@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     ArrowLeft, Zap, Cog, Gauge, TrendingUp, Magnet, AlertTriangle,
@@ -10,6 +10,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════════
 const fmt = (n, d = 1) => (Number.isFinite(n) ? String(Math.round(n * 10 ** d) / 10 ** d) : "∞");
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const round1 = (n) => Math.round(n * 10) / 10;
 
 const Slider = ({ label, value, set, min, max, step = 1, unit = "", disabled }) => (
     <div className={disabled ? "opacity-50 pointer-events-none" : ""}>
@@ -34,12 +35,100 @@ const Stat = ({ label, value, unit, tone = "" }) => (
     </div>
 );
 
-// Machine constants for the playground (a mid-size separately-excited DC motor)
-const K0 = 2.8;        // back-EMF / torque constant at FULL flux  [V·s/rad  =  N·m/A]
-const RA = 0.5;        // armature resistance  [Ω]
-const V_RATED = 440;   // rated armature voltage  [V]
-const IA_RATED = 100;  // rated armature current  [A]
-const IA_MAX = 160;    // trip / overload threshold  [A]
+// ── Motor nameplate → machine constants ─────────────────────────────────────────
+// Everything the Playground and DC Drive tabs compute is scaled from the nameplate,
+// exactly like a real drive scales its model from the entered motor data.
+const DEFAULT_NAMEPLATE = { vRated: 440, iRated: 100, nBase: 1500, nMax: 3000, ra: 0.5, ifRated: 1.5 };
+
+const NAMEPLATE_PRESETS = [
+    { name: "40 kW · 440 V · 1500 rpm", np: { vRated: 440, iRated: 100, nBase: 1500, nMax: 3000, ra: 0.5, ifRated: 1.5 } },
+    { name: "7.5 kW · 400 V · 1750 rpm", np: { vRated: 400, iRated: 21, nBase: 1750, nMax: 2600, ra: 2.6, ifRated: 0.9 } },
+    { name: "150 kW · 600 V · 1000 rpm", np: { vRated: 600, iRated: 270, nBase: 1000, nMax: 2000, ra: 0.12, ifRated: 6.0 } },
+];
+
+function deriveMotor(np) {
+    const omegaBase = (2 * Math.PI * np.nBase) / 60;                 // rad/s
+    const kRated = omegaBase > 0 ? (np.vRated - np.iRated * np.ra) / omegaBase : 0; // kφ at full flux
+    const tRated = kRated * np.iRated;                              // N·m
+    const pRated = tRated * omegaBase;                              // W
+    const fwRatio = np.nBase > 0 ? np.nMax / np.nBase : 1;
+    return { omegaBase, kRated, tRated, pRated, fwRatio };
+}
+
+// Magnetization curve: flux vs field current, normalised so φ = 100% at rated field
+// current. The curve saturates near rated (small drops in I_f barely change flux),
+// then falls faster below the knee — which is exactly how field weakening behaves.
+const IF_SAT = 0.7;
+const fluxPctFromIf = (ifCur, ifRated) => {
+    const x = ifRated > 0 ? ifCur / ifRated : 0;
+    const pu = ((1 + IF_SAT) * x) / (1 + IF_SAT * x);
+    return clamp(pu * 100, 0, 200);
+};
+
+const NumField = ({ label, value, set, min, max, step = 1, unit }) => (
+    <div>
+        <label className="text-xs text-muted-foreground">{label}{unit ? ` (${unit})` : ""}</label>
+        <input
+            type="number" value={value} min={min} max={max} step={step}
+            onChange={(e) => { const v = parseFloat(e.target.value); set(Number.isFinite(v) ? v : 0); }}
+            className="mt-1 w-full h-9 rounded-md border border-input bg-background px-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+    </div>
+);
+
+const Nameplate = ({ np, setNp, derived }) => {
+    const upd = (k, v) => setNp((p) => ({ ...p, [k]: v }));   // pure input — nothing is auto-adjusted
+    return (
+        <div className="rounded-lg border-2 border-primary/30 bg-muted/30 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold text-sm flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    Motor nameplate
+                    <span className="text-muted-foreground font-normal">— drives the Playground, DC Drive &amp; Commissioning tools</span>
+                </p>
+                <select
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                    value=""
+                    onChange={(e) => { const p = NAMEPLATE_PRESETS[+e.target.value]; if (p) setNp({ ...p.np }); }}
+                >
+                    <option value="" disabled>Load a preset…</option>
+                    {NAMEPLATE_PRESETS.map((p, i) => <option key={p.name} value={i}>{p.name}</option>)}
+                </select>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <NumField label="Armature voltage" unit="V" value={np.vRated} set={(v) => upd("vRated", v)} min={12} max={1000} step={5} />
+                <NumField label="Armature current" unit="A" value={np.iRated} set={(v) => upd("iRated", v)} min={1} max={3000} step={1} />
+                <NumField label="Field current" unit="A" value={np.ifRated} set={(v) => upd("ifRated", v)} min={0.1} max={50} step={0.1} />
+                <NumField label="Base speed" unit="rpm" value={np.nBase} set={(v) => upd("nBase", v)} min={100} max={4000} step={10} />
+                <NumField label="Max speed" unit="rpm" value={np.nMax} set={(v) => upd("nMax", v)} min={np.nBase} max={8000} step={10} />
+                <NumField label="Armature R" unit="Ω" value={np.ra} set={(v) => upd("ra", v)} min={0} max={20} step={0.01} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                {[
+                    ["kφ (full field)", `${fmt(derived.kRated, 2)}`],
+                    ["Rated torque", `${fmt(derived.tRated, 0)} N·m`],
+                    ["Rated power", `${fmt(derived.pRated / 1000, 1)} kW`],
+                    ["Field weakening", `${fmt(derived.fwRatio, 2)} : 1`],
+                ].map(([k, v]) => (
+                    <div key={k} className="rounded-md bg-background border p-2">
+                        <span className="text-muted-foreground">{k} </span>
+                        <span className="font-mono font-bold">{v}</span>
+                    </div>
+                ))}
+            </div>
+            {derived.kRated <= 0 && (
+                <p className="text-xs text-destructive flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Check nameplate — computed kφ is not positive (armature voltage too low vs IₐRₐ, or base speed too high).
+                </p>
+            )}
+            {np.nMax < np.nBase && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Max speed is below base speed — field-weakening range is less than 1 : 1.
+                </p>
+            )}
+        </div>
+    );
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  TAB 1 — HOW A DC MOTOR WORKS  (construction + principle, illustrative SVG)
@@ -148,35 +237,47 @@ const MotorBasicsTab = () => (
 // ═══════════════════════════════════════════════════════════════════════════════
 //  TAB 2 — MOTOR PLAYGROUND  (interactive, animated rotor)
 // ═══════════════════════════════════════════════════════════════════════════════
-const MotorPlayground = () => {
-    const [va, setVa] = useState(440);
-    const [fluxPct, setFluxPct] = useState(100);
-    const [load, setLoad] = useState(150);
-    const [mode, setMode] = useState("armature");   // "armature" | "weaken"
+const MotorPlayground = ({ np, derived }) => {
+    const { vRated, iRated, ra: RA, ifRated } = np;
+    const K0 = derived.kRated;                    // back-EMF / torque constant at full flux (from nameplate)
+    const iaMax = iRated * 1.6;                   // overload / trip threshold
+    const loadMax = Math.max(50, Math.ceil((derived.tRated * 2) / 10) * 10);
+    const ifMin = round1(ifRated * 0.25);         // deepest field weakening
+
+    const [va, setVa] = useState(() => vRated);
+    const [ifCur, setIfCur] = useState(() => ifRated);  // FIELD CURRENT is the control now
+    const [load, setLoad] = useState(() => Math.round(derived.tRated));
+    const [mode, setMode] = useState("armature"); // "armature" | "weaken"
+
+    const fluxPct = fluxPctFromIf(ifCur, ifRated);      // flux comes from the magnetization curve
+
+    // Only keep the sliders inside the ranges the nameplate allows — no auto-forcing of values.
+    useEffect(() => { setVa((v) => clamp(v, 0, vRated)); }, [vRated]);
+    useEffect(() => { setIfCur((f) => clamp(f, ifMin, ifRated)); }, [ifRated, ifMin]);
+    useEffect(() => { setLoad((l) => clamp(l, 0, loadMax)); }, [loadMax]);
 
     // Switching mode pins the "other" knob so the active control is the teaching point
     const applyMode = (m) => {
         setMode(m);
-        if (m === "armature") setFluxPct(100);       // full field, vary Vₐ  (below base speed)
-        else setVa(V_RATED);                          // Vₐ at ceiling, vary φ (above base speed)
+        if (m === "armature") setIfCur(ifRated);     // full field, vary Vₐ  (below base speed)
+        else setVa(vRated);                           // Vₐ at ceiling, weaken I_f (above base speed)
     };
 
     // Steady-state separately-excited DC motor model
     const kphi = K0 * (fluxPct / 100);
-    const Ia = load / kphi;                       // Te = Tload  ⇒  Iₐ = T / (kφ)
+    const Ia = kphi > 0 ? load / kphi : Infinity; // Te = Tload  ⇒  Iₐ = T / (kφ)
     const Eb = va - Ia * RA;
     const omega = Eb > 0 ? Eb / kphi : 0;         // rad/s  (stalled if back-EMF can't be reached)
     const N = omega * 9.5493;                     // rpm
     const power = load * omega;                   // W
     const stalled = Eb <= 0 && load > 0;
-    const overload = Ia > IA_MAX;
+    const overload = Ia > iaMax;
 
-    // Field-weakening references
+    // Field-weakening references — base speed is the NAMEPLATE spec
+    // (speed at rated Vₐ + full field + rated load), not a value recomputed at the current load.
     const weakening = fluxPct < 99.5;             // field reduced below rated
-    const torqueCap = kphi * IA_RATED;            // torque available at rated current → falls with flux
-    const IaBase = load / K0;                     // base-speed reference at THIS load (full V, full φ)
-    const EbBase = V_RATED - IaBase * RA;
-    const Nbase = EbBase > 0 ? (EbBase / K0) * 9.5493 : 0;
+    const torqueCap = kphi * iRated;              // torque available at rated current → falls with flux
+    const Nbase = np.nBase;
     const aboveBase = N > Nbase + 5;
 
     // Animated rotor — rotate at a rate proportional to speed (visually scaled)
@@ -223,16 +324,51 @@ const MotorPlayground = () => {
                 <div className="grid grid-cols-2 gap-3">
                     <Stat label="Speed" value={fmt(N, 0)} unit="rpm" tone={stalled ? "text-red-500" : aboveBase ? "text-amber-500" : ""} />
                     <Stat label="Armature current Iₐ" value={fmt(Ia, 0)} unit="A" tone={overload ? "text-red-500" : ""} />
+                    <Stat label="Field current I_f" value={fmt(ifCur, 2)} unit="A" tone={weakening ? "text-amber-500" : ""} />
+                    <Stat label="Flux φ" value={fmt(fluxPct, 0)} unit="%" tone={weakening ? "text-amber-500" : ""} />
                     <Stat label="Back-EMF Eₑ" value={fmt(Math.max(Eb, 0), 0)} unit="V" />
                     <Stat label="Shaft power" value={fmt(power / 1000, 2)} unit="kW" />
-                    <Stat label="Base speed (full field)" value={fmt(Nbase, 0)} unit="rpm" />
+                    <Stat label="Base speed (nameplate)" value={fmt(Nbase, 0)} unit="rpm" />
                     <Stat label="Torque capacity" value={fmt(torqueCap, 0)} unit="N·m" tone={weakening ? "text-amber-500" : ""} />
+                </div>
+
+                {/* Magnetization curve — flux vs field current, with the operating point */}
+                <div className="rounded-lg border bg-slate-900 p-2">
+                    <p className="text-[11px] text-slate-400 font-mono mb-1 px-1">Magnetization curve — φ vs field current I_f</p>
+                    <svg viewBox="0 0 300 120" className="w-full">
+                        {(() => {
+                            const W = 300, H = 120, pl = 30, pb = 20, pt = 8, pr = 8;
+                            const fx = (f) => pl + (f / ifRated) * (W - pl - pr);
+                            const fy = (p) => H - pb - (clamp(p, 0, 120) / 120) * (H - pb - pt);
+                            const pts = [];
+                            for (let i = 0; i <= 60; i++) {
+                                const f = (i / 60) * ifRated;
+                                pts.push(`${fmt(fx(f), 1)},${fmt(fy(fluxPctFromIf(f, ifRated)), 1)}`);
+                            }
+                            return (
+                                <>
+                                    {[0, 50, 100].map((p) => (
+                                        <g key={p}>
+                                            <line x1={pl} y1={fy(p)} x2={W - pr} y2={fy(p)} stroke="#1e293b" />
+                                            <text x={pl - 3} y={fy(p) + 3} fill="#64748b" fontSize="8" textAnchor="end" fontFamily="monospace">{p}%</text>
+                                        </g>
+                                    ))}
+                                    <line x1={pl} y1={pt} x2={pl} y2={H - pb} stroke="#475569" />
+                                    <line x1={pl} y1={H - pb} x2={W - pr} y2={H - pb} stroke="#475569" />
+                                    <text x={W - pr} y={H - pb + 13} fill="#64748b" fontSize="8" textAnchor="end" fontFamily="monospace">I_f → {fmt(ifRated, 1)} A</text>
+                                    <polyline points={pts.join(" ")} fill="none" stroke="#4ade80" strokeWidth="2" />
+                                    <line x1={fx(ifCur)} y1={pt} x2={fx(ifCur)} y2={H - pb} stroke="#facc15" strokeWidth="1" strokeDasharray="3 3" />
+                                    <circle cx={fx(ifCur)} cy={fy(fluxPct)} r="4" fill="#facc15" stroke="#0f172a" strokeWidth="1.5" />
+                                </>
+                            );
+                        })()}
+                    </svg>
                 </div>
 
                 {overload && (
                     <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4 shrink-0" />
-                        Iₐ = {fmt(Ia, 0)} A exceeds the {IA_MAX} A trip level — a real drive would current-limit or fault here.
+                        Iₐ = {fmt(Ia, 0)} A exceeds the {fmt(iaMax, 0)} A trip level (≈1.6× rated) — a real drive would current-limit or fault here.
                     </div>
                 )}
                 {stalled && (
@@ -264,25 +400,26 @@ const MotorPlayground = () => {
                 <div className={`rounded-lg border-2 p-3 text-sm ${weakening ? "border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200" : "border-sky-400/60 bg-sky-50 dark:bg-sky-950/30 text-sky-800 dark:text-sky-200"}`}>
                     <span className="flex items-center gap-2 font-semibold">
                         {weakening ? <Magnet className="h-4 w-4" /> : <Gauge className="h-4 w-4" />}
-                        {weakening ? `Field weakening — φ at ${fmt(fluxPct, 0)}%` : "Full field — armature-voltage region"}
+                        {weakening ? `Field weakening — I_f ${fmt(ifCur, 2)} A → φ ${fmt(fluxPct, 0)}%` : "Full field — armature-voltage region"}
                     </span>
                     <p className="text-xs mt-1 font-normal">
-                        Base speed at this load ≈ <span className="font-mono font-semibold">{fmt(Nbase, 0)} rpm</span>.{" "}
+                        Nameplate base speed <span className="font-mono font-semibold">{fmt(Nbase, 0)} rpm</span>.{" "}
                         {aboveBase
                             ? `Running ${fmt(N / Nbase, 2)}× base by weakening the field — note torque capacity has dropped to ${fmt(torqueCap, 0)} N·m.`
                             : mode === "weaken"
-                                ? "Lower φ to push speed above base — watch torque capacity fall."
-                                : "Raise Vₐ toward 440 V to reach base speed, then switch to field weakening."}
+                                ? "Lower I_f to weaken the field and push speed above base — watch torque capacity fall."
+                                : `Raise Vₐ toward ${fmt(vRated, 0)} V to reach base speed, then switch to field weakening.`}
                     </p>
                 </div>
 
-                <Slider label="Armature voltage  Vₐ" value={va} set={setVa} min={0} max={V_RATED} unit=" V" disabled={mode === "weaken"} />
-                <Slider label="Field flux  φ" value={fluxPct} set={setFluxPct} min={30} max={100} unit=" %" disabled={mode === "armature"} />
-                <Slider label="Load torque  T" value={load} set={setLoad} min={0} max={300} unit=" N·m" />
+                <Slider label="Armature voltage  Vₐ" value={Math.min(va, vRated)} set={setVa} min={0} max={vRated} unit=" V" disabled={mode === "weaken"} />
+                <Slider label="Field current  I_f" value={round1(clamp(ifCur, ifMin, ifRated))} set={setIfCur} min={ifMin} max={ifRated} step={0.05} unit=" A" disabled={mode === "armature"} />
+                <Slider label="Load torque  T" value={Math.min(load, loadMax)} set={setLoad} min={0} max={loadMax} unit=" N·m" />
 
                 <div className="rounded-md bg-muted/60 p-3 text-xs font-mono text-muted-foreground space-y-1">
                     <p className="text-foreground font-semibold">Steady-state solution</p>
-                    <p>kφ = {K0} × {fmt(fluxPct)}% = {fmt(kphi, 2)}</p>
+                    <p>φ(I_f) = φ({fmt(ifCur, 2)} A / {fmt(ifRated, 2)} A) = {fmt(fluxPct, 0)}%</p>
+                    <p>kφ = {fmt(K0, 2)} × {fmt(fluxPct, 0)}% = {fmt(kphi, 2)}</p>
                     <p>Iₐ = T / kφ = {load} / {fmt(kphi, 2)} = {fmt(Ia, 1)} A</p>
                     <p>Eₑ = Vₐ − Iₐ·Rₐ = {va} − {fmt(Ia * RA, 1)} = {fmt(Eb, 1)} V</p>
                     <p>ω = Eₑ / kφ = {fmt(omega, 1)} rad/s → {fmt(N, 0)} rpm</p>
@@ -290,7 +427,7 @@ const MotorPlayground = () => {
 
                 <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1.5">
                     <p><strong className="text-foreground">Raise Vₐ</strong> → speed rises (armature-voltage control, below base speed).</p>
-                    <p><strong className="text-foreground">Lower φ</strong> → speed rises but current climbs and torque capacity drops (field weakening, above base speed).</p>
+                    <p><strong className="text-foreground">Lower I_f</strong> → flux drops along the magnetization curve; speed rises but current climbs and torque capacity falls (field weakening).</p>
                     <p><strong className="text-foreground">Raise load</strong> → more current is drawn, speed droops slightly.</p>
                 </div>
             </div>
@@ -375,10 +512,15 @@ const Chart = ({ title, series, Nbase, Nmax, Nop }) => {
     );
 };
 
-const DriveTab = () => {
-    const [Nbase, setNbase] = useState(1500);
-    const [ratio, setRatio] = useState(2);          // field-weakening range  N_full : N_base
-    const [Nop, setNop] = useState(1500);
+const DriveTab = ({ np, derived }) => {
+    const [Nbase, setNbase] = useState(() => np.nBase);
+    const [ratio, setRatio] = useState(() => clamp(derived.fwRatio, 1, 5)); // field-weakening range  N_full : N_base
+    const [Nop, setNop] = useState(() => np.nBase);
+
+    // Re-seed base speed and field-weakening range from the nameplate whenever it changes
+    useEffect(() => { setNbase(np.nBase); setNop(np.nBase); }, [np.nBase]);
+    useEffect(() => { setRatio(clamp(derived.fwRatio, 1, 5)); }, [derived.fwRatio]);
+
     const Nmax = Nbase * ratio;
     const opN = clamp(Nop, 0, Nmax);
 
@@ -388,6 +530,9 @@ const DriveTab = () => {
     const torque = puTorque(opN, Nbase);
     const powerPu = puPower(opN, Nbase);
     const Eb = puEb(opN, Nbase);
+    // Real engineering values scaled from the nameplate
+    const actTorque = torque * derived.tRated;
+    const actPower = powerPu * derived.pRated;
 
     return (
         <div className="space-y-6">
@@ -420,8 +565,8 @@ const DriveTab = () => {
                 </div>
 
                 <div className="space-y-4">
-                    <Slider label="Base speed" value={Nbase} set={setNbase} min={500} max={3000} step={50} unit=" rpm" />
-                    <Slider label="Field-weakening range (full : base)" value={ratio} set={setRatio} min={1} max={4} step={0.1} unit=" : 1" />
+                    <Slider label="Base speed" value={Nbase} set={setNbase} min={200} max={4000} step={50} unit=" rpm" />
+                    <Slider label="Field-weakening range (full : base)" value={fmt(ratio, 1)} set={setRatio} min={1} max={5} step={0.1} unit=" : 1" />
                     <Slider label="Operating speed" value={opN} set={setNop} min={0} max={Nmax} step={10} unit=" rpm" />
 
                     <div className={`rounded-lg border-2 p-3 text-sm font-semibold ${opN <= Nbase ? "border-sky-400/60 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300" : "border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300"}`}>
@@ -436,6 +581,8 @@ const DriveTab = () => {
                         <Stat label="Flux φ" value={fmt(flux * 100, 0)} unit="%" />
                         <Stat label="Max torque" value={fmt(torque * 100, 0)} unit="%" tone={opN > Nbase ? "text-amber-500" : ""} />
                         <Stat label="Max power" value={fmt(powerPu * 100, 0)} unit="%" />
+                        <Stat label="≈ Torque" value={fmt(actTorque, 0)} unit="N·m" tone={opN > Nbase ? "text-amber-500" : ""} />
+                        <Stat label="≈ Power" value={fmt(actPower / 1000, 1)} unit="kW" />
                         <Stat label="Back-EMF" value={fmt(Eb * 100, 0)} unit="%" />
                         <Stat label="Full speed" value={fmt(Nmax, 0)} unit="rpm" />
                     </div>
@@ -498,7 +645,7 @@ const PARAM_ROWS = [
     { fn: "Save to non-volatile memory", why: "Persists the commissioned set so it survives power-off.", abb: "96.07 (param save)", sie: "p0977 = 1" },
 ];
 
-const DrivesTab = () => (
+const CommissionReference = () => (
     <div className="space-y-8">
         <div className="rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">
             The <strong>ABB DCS880</strong> and <strong>Siemens SINAMICS DC MASTER 6RA80</strong> are modern digital
@@ -605,11 +752,342 @@ const DrivesTab = () => (
     </div>
 );
 
+// ── Inverse magnetization curve: field current needed for a target flux % ─────────
+const ifFromFluxPct = (pct, ifRated) => {
+    const p = clamp(pct / 100, 0, 1);
+    const x = p / (1 + IF_SAT * (1 - p));   // inverse of fluxPctFromIf
+    return x * ifRated;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOOL 2 — FIELD-WEAKENING / MINIMUM-FIELD CALCULATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+const FieldWeakeningCalc = ({ np, derived }) => {
+    const { vRated, iRated, ra, ifRated, nBase, nMax } = np;
+    const ratio = nBase > 0 ? nMax / nBase : 1;
+    const fluxAtMax = nMax > 0 ? (nBase / nMax) * 100 : 100;   // φ ∝ 1/n above base speed
+    const ifMin = ifFromFluxPct(fluxAtMax, ifRated);
+    const eRated = vRated - iRated * ra;                        // induced EMF at rated (control target)
+    const emfSetpoint = 0.95 * eRated;                          // ~5% margin for the EMF controller
+    const tqAtMax = derived.tRated * (nBase / nMax);            // available torque at max speed
+    const deep = ifMin < 0.35 * ifRated;
+    const wideRange = ratio > 3;
+
+    return (
+        <div className="space-y-5">
+            <p className="text-sm text-muted-foreground">
+                Above base speed the drive holds EMF constant by weakening the field: flux must fall as{" "}
+                <span className="font-mono">φ ∝ n_base / n</span>. This computes the <strong>minimum field current</strong>{" "}
+                and <strong>EMF setpoint</strong> you enter, from the nameplate above.
+            </p>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Stat label="Field-weakening range" value={`${fmt(ratio, 2)} : 1`} unit="" tone={wideRange ? "text-amber-500" : ""} />
+                <Stat label="Flux needed at max speed" value={fmt(fluxAtMax, 0)} unit="%" />
+                <Stat label="Min field current I_f,min" value={fmt(ifMin, 2)} unit="A" tone={deep ? "text-amber-500" : ""} />
+                <Stat label="Torque at max speed" value={fmt(tqAtMax, 0)} unit="N·m" />
+            </div>
+
+            <div className="rounded-lg border overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead><tr className="border-b bg-muted/50 text-left"><th className="p-2.5">Set this</th><th className="p-2.5">Value</th><th className="p-2.5">ABB DCS880</th><th className="p-2.5">Siemens 6RA80</th></tr></thead>
+                    <tbody className="[&_td]:p-2.5 [&_td]:border-b [&_tr:last-child_td]:border-0">
+                        <tr><td className="font-medium">Rated field current</td><td className="font-mono">{fmt(ifRated, 2)} A</td><td className="font-mono text-xs text-red-600 dark:text-red-400">99.10*</td><td className="font-mono text-xs text-sky-600 dark:text-sky-400">p50102</td></tr>
+                        <tr><td className="font-medium">Minimum field current</td><td className="font-mono">{fmt(ifMin, 2)} A</td><td className="font-mono text-xs text-red-600 dark:text-red-400">field-exciter min*</td><td className="font-mono text-xs text-sky-600 dark:text-sky-400">p50103</td></tr>
+                        <tr><td className="font-medium">EMF setpoint (~95% of {fmt(eRated, 0)} V)</td><td className="font-mono">{fmt(emfSetpoint, 0)} V</td><td className="font-mono text-xs text-red-600 dark:text-red-400">EMF ctrl*</td><td className="font-mono text-xs text-sky-600 dark:text-sky-400">p50100 / EMF</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {(deep || wideRange || np.nMax < np.nBase) && (
+                <div className="rounded-lg border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 space-y-1">
+                    {np.nMax < np.nBase && <p className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 shrink-0" />Max speed is below base speed — there is no field-weakening range. Check the nameplate.</p>}
+                    {wideRange && <p className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 shrink-0" />Field-weakening range {fmt(ratio, 1)}:1 is wide — most DC motors are limited to 2:1–3:1 by commutation. Confirm the motor's max-speed rating.</p>}
+                    {deep && <p className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 shrink-0" />Min field current is very low ({fmt(ifMin, 2)} A) — deep weakening risks poor commutation and overspeed on load loss.</p>}
+                </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+                EMF at rated = Vₐ − Iₐ·Rₐ = {vRated} − {fmt(iRated * ra, 0)} = <span className="font-mono">{fmt(eRated, 0)} V</span>.
+                The EMF controller holds this constant above base speed; flux (hence field current) is reduced to keep it there as speed rises.
+            </p>
+        </div>
+    );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOOL 5 — PI TUNING SIMULATOR (current & speed loop step response)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Closed-loop step response of a PI controller on either a first-order lag (current
+// loop) or an integrating plant (speed loop). Illustrative — shows how Kp / Ti shape
+// overshoot and settling, i.e. what the p50051=25/26 optimization runs deliver.
+function stepResponse(plant, Kp, Ti) {
+    const dt = 0.004, steps = 375;
+    const Tp = 0.06;          // lag plant time constant (current loop)
+    const Kj = 6;             // integrator plant gain (speed loop)
+    let y = 0, integ = 0;
+    const ys = [];
+    let ymax = 0, settleT = null;
+    for (let i = 0; i <= steps; i++) {
+        const t = i * dt;
+        const e = 1 - y;                       // unit step reference
+        integ = clamp(integ + e * dt, -50, 50); // simple anti-windup
+        const u = clamp(Kp * (e + integ / Ti), -12, 12);
+        if (plant === "current") y += ((-y + u) / Tp) * dt;   // Tp·dy/dt = -y + u
+        else y += Kj * u * dt;                                 // dy/dt = Kj·u  (integrator)
+        ys.push([t, y]);
+        if (y > ymax) ymax = y;
+        if (Math.abs(y - 1) <= 0.02) { if (settleT === null) settleT = t; } else settleT = null;
+    }
+    const overshoot = Math.max(0, (ymax - 1) * 100);
+    const last = ys[ys.length - 1][1];
+    const unstable = ymax > 3 || !Number.isFinite(last);
+    return { ys, overshoot, settleT, unstable, horizon: steps * dt };
+}
+
+const PITuningSim = () => {
+    const [plant, setPlant] = useState("current");
+    const [Kp, setKp] = useState(3);
+    const [Ti, setTi] = useState(0.12);
+
+    const { ys, overshoot, settleT, unstable, horizon } = stepResponse(plant, Kp, Ti);
+    const W = 460, H = 240, pl = 34, pb = 26, pt = 12, pr = 10;
+    const yMax = 1.8;
+    const px = (t) => pl + (t / horizon) * (W - pl - pr);
+    const py = (v) => H - pb - (clamp(v, 0, yMax) / yMax) * (H - pb - pt);
+    const path = ys.map(([t, v]) => `${fmt(px(t), 1)},${fmt(py(v), 1)}`).join(" ");
+
+    const verdict = unstable ? { t: "Unstable — reduce gain", c: "text-red-500" }
+        : overshoot > 25 ? { t: "Oscillatory — lower Kp or raise Ti", c: "text-amber-500" }
+            : overshoot < 3 && settleT !== null ? { t: "Well damped", c: "text-emerald-500" }
+                : settleT === null ? { t: "Sluggish — raise Kp / lower Ti", c: "text-sky-500" }
+                    : { t: "Acceptable — mild overshoot", c: "text-emerald-500" };
+
+    return (
+        <div className="grid lg:grid-cols-2 gap-6 items-start">
+            <div className="space-y-3">
+                <div className="flex rounded-md border overflow-hidden text-xs font-semibold">
+                    {[{ k: "current", t: "Current loop (fast, lag plant)" }, { k: "speed", t: "Speed loop (integrating plant)" }].map((p) => (
+                        <button key={p.k} onClick={() => setPlant(p.k)}
+                            className={`flex-1 px-2 py-1.5 transition-colors ${plant === p.k ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}>{p.t}</button>
+                    ))}
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-lg border bg-slate-900">
+                    <line x1={pl} y1={py(1)} x2={W - pr} y2={py(1)} stroke="#475569" strokeDasharray="5 4" />
+                    <text x={W - pr} y={py(1) - 4} fill="#94a3b8" fontSize="9" textAnchor="end" fontFamily="monospace">setpoint</text>
+                    {[0.02, -0.02].map((b, i) => <line key={i} x1={pl} y1={py(1 + b)} x2={W - pr} y2={py(1 + b)} stroke="#1e293b" />)}
+                    <line x1={pl} y1={pt} x2={pl} y2={H - pb} stroke="#475569" />
+                    <line x1={pl} y1={H - pb} x2={W - pr} y2={H - pb} stroke="#475569" />
+                    <text x={W - pr} y={H - pb + 14} fill="#64748b" fontSize="8" textAnchor="end" fontFamily="monospace">time →</text>
+                    {settleT !== null && <line x1={px(settleT)} y1={pt} x2={px(settleT)} y2={H - pb} stroke="#4ade80" strokeWidth="1" strokeDasharray="3 3" />}
+                    <polyline points={path} fill="none" stroke={unstable ? "#f87171" : "#38bdf8"} strokeWidth="2.5" />
+                </svg>
+                <p className={`text-sm font-semibold ${verdict.c}`}>{verdict.t}</p>
+            </div>
+            <div className="space-y-4">
+                <Slider label="Controller gain  Kp" value={fmt(Kp, 2)} set={setKp} min={0.2} max={10} step={0.1} />
+                <Slider label="Integral (reset) time  Ti" value={fmt(Ti, 3)} set={setTi} min={0.01} max={0.6} step={0.005} unit=" s" />
+                <div className="grid grid-cols-2 gap-3">
+                    <Stat label="Overshoot" value={fmt(overshoot, 0)} unit="%" tone={overshoot > 25 ? "text-amber-500" : ""} />
+                    <Stat label="Settling (±2%)" value={settleT !== null ? fmt(settleT, 2) : "—"} unit={settleT !== null ? "s" : ""} />
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1.5">
+                    <p><strong className="text-foreground">Raise Kp</strong> → faster response, but too much brings overshoot and oscillation.</p>
+                    <p><strong className="text-foreground">Lower Ti</strong> → integral acts harder (kills steady-state error faster) but can destabilise.</p>
+                    <p>The drive finds these automatically: <span className="font-mono">p50051 = 25</span> tunes the current loop, <span className="font-mono">= 26</span> the speed loop. On DCS880 it's the autotuning / ID run.</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOOL 6 — FEEDBACK SELECTION & POLARITY CHECK
+// ═══════════════════════════════════════════════════════════════════════════════
+const FeedbackCheck = ({ np }) => {
+    const [source, setSource] = useState("tacho");
+    const [kTacho, setKTacho] = useState(20);      // V per 1000 rpm
+    const [ppr, setPpr] = useState(1024);          // encoder pulses / rev
+    const [reversed, setReversed] = useState(false);
+    const nMax = np.nMax;
+
+    const tachoV = (kTacho * nMax) / 1000;
+    const tachoHigh = tachoV > 10;
+    const encHz = (ppr * nMax) / 60;               // A-channel pulse frequency at max speed
+    const encHigh = encHz > 300000;
+
+    // Small convergence/divergence demo for polarity
+    const W = 300, H = 110, pl = 8, pb = 8, pt = 8, pr = 8;
+    const N = 60;
+    const pts = [];
+    let y = 0;
+    for (let i = 0; i <= N; i++) {
+        if (reversed) y = y < 0.05 ? 0.05 : y * 1.09;   // positive feedback → exponential runaway (upward)
+        else y += 0.09 * (1 - y);                        // negative feedback → settles at the setpoint
+        pts.push(`${fmt(pl + (i / N) * (W - pl - pr), 1)},${fmt(H - pb - (clamp(y, 0, 2) / 2) * (H - pb - pt), 1)}`);
+    }
+
+    return (
+        <div className="space-y-5">
+            <div className="flex rounded-md border overflow-hidden text-xs font-semibold w-full max-w-md">
+                {[{ k: "emf", t: "EMF (tacho-less)" }, { k: "tacho", t: "Analog tacho" }, { k: "encoder", t: "Pulse encoder" }].map((s) => (
+                    <button key={s.k} onClick={() => setSource(s.k)}
+                        className={`flex-1 px-2 py-1.5 transition-colors ${source === s.k ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}>{s.t}</button>
+                ))}
+            </div>
+
+            {source === "emf" && (
+                <div className="rounded-lg border p-4 text-sm space-y-2">
+                    <p><strong>EMF feedback</strong> derives speed from the armature: <span className="font-mono">n ∝ (Vₐ − Iₐ·Rₐ) / φ</span> — no sensor, cheapest, but:</p>
+                    <ul className="list-disc pl-5 text-muted-foreground text-xs space-y-1">
+                        <li>Accuracy depends on knowing Rₐ and flux; typically ±1–2% and load-sensitive.</li>
+                        <li>No usable feedback near zero speed → poor low-speed holding and no true standstill torque control.</li>
+                        <li>Feedback source: <span className="font-mono text-red-600 dark:text-red-400">DCS880 90.41</span> / <span className="font-mono text-sky-600 dark:text-sky-400">6RA80 p50083 = 3</span>.</li>
+                    </ul>
+                </div>
+            )}
+            {source === "tacho" && (
+                <div className="grid sm:grid-cols-2 gap-4 items-start">
+                    <div className="space-y-4">
+                        <Slider label="Tacho constant" value={kTacho} set={setKTacho} min={5} max={100} step={1} unit=" V/1000rpm" />
+                        <div className="rounded-lg border bg-muted/30 p-3 text-xs font-mono text-muted-foreground space-y-1">
+                            <p>V(max) = k × n_max / 1000</p>
+                            <p>= {kTacho} × {nMax} / 1000 = <span className="text-foreground font-bold">{fmt(tachoV, 1)} V</span></p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Stat label="Tacho voltage at max speed" value={fmt(tachoV, 1)} unit="V" tone={tachoHigh ? "text-red-500" : ""} />
+                        {tachoHigh
+                            ? <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />Exceeds the ±10 V analog input — add a divider or scale the input (<span className="font-mono">6RA80 p50083=1</span> + input scaling / <span className="font-mono">DCS880 90.xx</span>).</p>
+                            : <p className="text-xs text-muted-foreground">Within a ±10 V analog input. Scale the tacho input so V(max) = full-scale = max speed.</p>}
+                    </div>
+                </div>
+            )}
+            {source === "encoder" && (
+                <div className="grid sm:grid-cols-2 gap-4 items-start">
+                    <div className="space-y-4">
+                        <Slider label="Encoder pulses / rev" value={ppr} set={setPpr} min={100} max={5000} step={10} />
+                        <div className="rounded-lg border bg-muted/30 p-3 text-xs font-mono text-muted-foreground space-y-1">
+                            <p>f(max) = ppr × n_max / 60</p>
+                            <p>= {ppr} × {nMax} / 60 = <span className="text-foreground font-bold">{fmt(encHz / 1000, 1)} kHz</span></p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Stat label="Pulse frequency at max speed" value={fmt(encHz / 1000, 1)} unit="kHz" tone={encHigh ? "text-red-500" : ""} />
+                        {encHigh
+                            ? <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" />Above ~300 kHz typical input limit — use a lower-resolution encoder or check the board spec.</p>
+                            : <p className="text-xs text-muted-foreground">Within a typical ~300 kHz input limit. Enter pulses/rev at <span className="font-mono text-sky-600 dark:text-sky-400">6RA80 p50741</span> / <span className="font-mono text-red-600 dark:text-red-400">DCS880 92.xx</span>. Quadrature gives ×4 resolution.</p>}
+                    </div>
+                </div>
+            )}
+
+            {/* Polarity check */}
+            <div className={`rounded-lg border-2 p-4 ${reversed ? "border-red-400/60 bg-red-50 dark:bg-red-950/30" : "border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/30"}`}>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                    <p className={`font-semibold text-sm ${reversed ? "text-red-700 dark:text-red-300" : "text-emerald-700 dark:text-emerald-300"}`}>
+                        Feedback polarity: {reversed ? "REVERSED — runaway!" : "correct"}
+                    </p>
+                    <button onClick={() => setReversed((r) => !r)} className="text-xs font-semibold rounded-md border px-2.5 py-1.5 bg-background hover:bg-muted">
+                        Flip polarity
+                    </button>
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-md bg-slate-900">
+                    <line x1={pl} y1={H - pb - ((1 / 2) * (H - pb - pt))} x2={W - pr} y2={H - pb - ((1 / 2) * (H - pb - pt))} stroke="#475569" strokeDasharray="4 4" />
+                    <polyline points={pts.join(" ")} fill="none" stroke={reversed ? "#f87171" : "#4ade80"} strokeWidth="2.5" />
+                </svg>
+                <p className={`text-xs mt-2 ${reversed ? "text-red-700 dark:text-red-200" : "text-emerald-700 dark:text-emerald-200"}`}>
+                    {reversed
+                        ? "A reversed tacho/encoder sign turns the speed loop into positive feedback: the drive reads 'too slow', pushes more armature voltage, speed climbs, error grows — an instant overspeed. ALWAYS verify feedback sign at low speed before closing the loop."
+                        : "Correct sign gives negative feedback: the drive corrects toward the setpoint and settles. Confirm by jogging at low speed and checking the actual-speed sign matches the command."}
+                </p>
+            </div>
+        </div>
+    );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOOL 8 — OPTIMIZATION-RUN GUIDE (Siemens 6RA80  p50051)
+// ═══════════════════════════════════════════════════════════════════════════════
+const OPT_RUNS = [
+    { id: 24, title: "Current-controller pre-optimization", moves: "Standstill", motion: "safe", does: "Measures offsets and pre-controls the armature & field current controllers.", precond: "Line contactor on, field applied, motor at standstill and unable to turn.", result: "Current-loop offsets & precontrol set.", fail: "Faults if the motor rotates or no armature current can flow — check enable, contactor and mechanical brake." },
+    { id: 25, title: "Armature & field current-controller optimization", moves: "Standstill", motion: "safe", does: "Records armature resistance & inductance, tunes both current controllers (Kp, Ti).", precond: "Standstill, field on; armature current is injected.", result: "Current-controller gains set — fast, ripple-free torque.", fail: "If Rₐ/Lₐ readings look wrong, check armature wiring and that the motor truly can't turn." },
+    { id: 26, title: "Speed-controller optimization", moves: "Motor SPINS", motion: "danger", does: "Determines total moment of inertia and tunes the speed controller.", precond: "Machine coupled and free to rotate through the working range; guards in place.", result: "Speed-loop gain & integral time set.", fail: "Wrong inertia → sluggish/oscillatory speed. Ensure the load is representative and nothing is jammed." },
+    { id: 27, title: "Field-weakening / EMF-controller optimization", moves: "Motor SPINS", motion: "danger", does: "Records the magnetization curve and tunes the EMF / field-weakening controller.", precond: "Motor able to run up to and above base speed; overspeed protection verified.", result: "Magnetization characteristic & EMF controller set — clean field weakening.", fail: "Runs the motor into field weakening — confirm max-speed rating and load first." },
+    { id: 28, title: "Friction & inertia compensation", moves: "Motor SPINS", motion: "danger", does: "Measures friction and inertia across speed for the speed-loop feedforward.", precond: "Motor free to run across the full speed range with the real load.", result: "Friction/inertia feedforward set — better dynamic tracking.", fail: "Do last, after 26/27. Unrepresentative load gives poor compensation." },
+];
+
+const OptimizationRuns = () => (
+    <div className="space-y-5">
+        <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+            On the <strong>6RA80</strong> you trigger each optimization by setting <span className="font-mono">p50051</span> to the run number,
+            then giving an ON command — the drive performs the run and writes the results. Do them <strong>in order</strong>.
+            On the <strong>DCS880</strong> the equivalent is the built-in <strong>autotuning / ID run</strong> assistant rather than a numbered parameter.
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+            {OPT_RUNS.map((r) => (
+                <div key={r.id} className={`rounded-lg border-2 p-4 space-y-2 ${r.motion === "danger" ? "border-red-400/40" : "border-emerald-400/40"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                        <p className="font-bold text-sm flex items-center gap-2">
+                            <span className="font-mono rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">p50051 = {r.id}</span>
+                            {r.title}
+                        </p>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${r.motion === "danger" ? "bg-red-500/15 text-red-600 dark:text-red-300" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"}`}>{r.moves}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{r.does}</p>
+                    <div className="text-xs space-y-1">
+                        <p><span className="font-semibold">Precondition:</span> <span className="text-muted-foreground">{r.precond}</span></p>
+                        <p><span className="font-semibold">Result:</span> <span className="text-muted-foreground">{r.result}</span></p>
+                        <p><span className="font-semibold">If it fails:</span> <span className="text-muted-foreground">{r.fail}</span></p>
+                    </div>
+                </div>
+            ))}
+        </div>
+        <div className="rounded-lg border-2 border-orange-400/60 bg-orange-50 dark:bg-orange-950/30 p-4 text-sm text-orange-900 dark:text-orange-200">
+            <p className="font-bold flex items-center gap-2 text-orange-700 dark:text-orange-300 mb-1"><ShieldAlert className="h-4 w-4" />Safety</p>
+            Runs 26–28 <strong>rotate the motor</strong>, and 27 drives it above base speed. Clear the machine, verify E-stop and overspeed
+            protection, and be ready to trip. After all runs, <strong>save</strong> — <span className="font-mono">6RA80 p0977 = 1</span> / <span className="font-mono">DCS880 group 96</span>.
+        </div>
+    </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  COMMISSIONING TAB — wraps the reference + the interactive commissioning tools
+// ═══════════════════════════════════════════════════════════════════════════════
+const DrivesTab = ({ np, derived }) => {
+    const [sub, setSub] = useState("reference");
+    const SUBS = [
+        { k: "reference", t: "Reference" },
+        { k: "fw", t: "Field-weakening calc" },
+        { k: "pi", t: "PI tuning" },
+        { k: "feedback", t: "Feedback & polarity" },
+        { k: "opt", t: "Optimization runs" },
+    ];
+    return (
+        <div className="space-y-5">
+            <div className="flex flex-wrap gap-1.5">
+                {SUBS.map((s) => (
+                    <button key={s.k} onClick={() => setSub(s.k)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${sub === s.k ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-input hover:bg-muted"}`}>
+                        {s.t}
+                    </button>
+                ))}
+            </div>
+            {sub === "reference" ? <CommissionReference />
+                : sub === "fw" ? <FieldWeakeningCalc np={np} derived={derived} />
+                    : sub === "pi" ? <PITuningSim />
+                        : sub === "feedback" ? <FeedbackCheck np={np} />
+                            : <OptimizationRuns />}
+        </div>
+    );
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 const DCMotorDrive = () => {
     const [tab, setTab] = useState("motor");
+    const [np, setNp] = useState(DEFAULT_NAMEPLATE);
+    const derived = useMemo(() => deriveMotor(np), [np]);
+    const usesNameplate = tab === "playground" || tab === "drive" || tab === "commission";
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 mt-6 px-4 pb-12">
@@ -652,7 +1130,12 @@ const DCMotorDrive = () => {
                 })}
             </div>
 
-            {tab === "motor" ? <MotorBasicsTab /> : tab === "playground" ? <MotorPlayground /> : tab === "drive" ? <DriveTab /> : <DrivesTab />}
+            {usesNameplate && <Nameplate np={np} setNp={setNp} derived={derived} />}
+
+            {tab === "motor" ? <MotorBasicsTab />
+                : tab === "playground" ? <MotorPlayground np={np} derived={derived} />
+                    : tab === "drive" ? <DriveTab np={np} derived={derived} />
+                        : <DrivesTab np={np} derived={derived} />}
         </div>
     );
 };
