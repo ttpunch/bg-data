@@ -19,6 +19,7 @@ import Knowledge from "./Knowledge";
 import GMCodeGuide from "./GMCodeGuide";
 import GCodeTrainer from "./GCodeTrainer";
 import CodeConverter from "./CodeConverter";
+import DCMotorDrive from "./DCMotorDrive";
 
 
 const Layout = () => {
@@ -54,6 +55,7 @@ const Layout = () => {
                 <Route path='/knowledge/gm-code-guide' element={<GMCodeGuide />} />
                 <Route path='/knowledge/gcode-trainer' element={<GCodeTrainer />} />
                 <Route path='/knowledge/code-converter' element={<CodeConverter />} />
+                <Route path='/knowledge/dc-motor-drive' element={<DCMotorDrive />} />
               </Routes>
             </main>
           </div>
