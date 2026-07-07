@@ -1,4 +1,4 @@
-import { BookOpenText, Crosshair, Repeat } from "lucide-react";
+import { BookOpenText, Crosshair, Repeat, Zap } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  KNOWLEDGE TOOL REGISTRY
@@ -26,5 +26,12 @@ export const knowledgeTools = [
         description: "Translate part programs between Siemens and Fanuc dialects, with manual-review flags for cycles and macros.",
         icon: Repeat,
         path: "/knowledge/code-converter",
+    },
+    {
+        id: "dc-motor-drive",
+        title: "DC Motor & DC Drive",
+        description: "How a DC motor works, an interactive motor playground, the drive's speed-control envelope (armature voltage, base/full speed, flux, field weakening), plus ABB DCS880 & Siemens 6RA80 commissioning parameters.",
+        icon: Zap,
+        path: "/knowledge/dc-motor-drive",
     },
 ];
