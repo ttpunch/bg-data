@@ -5,10 +5,16 @@ import { isErr, parseNumber } from "../lib/s7";
 import { TabButton } from "./s7/Shared";
 import NumberTab from "./s7/NumberTab";
 import AddressTab from "./s7/AddressTab";
+import PointerTab from "./s7/PointerTab";
+import SignalTab from "./s7/SignalTab";
+import RealTimeTab from "./s7/RealTimeTab";
 
 const TABS = [
     { id: "number", label: "Number" },
     { id: "address", label: "Address" },
+    { id: "pointer", label: "Pointer" },
+    { id: "signal", label: "Signal" },
+    { id: "realtime", label: "REAL / Time" },
 ];
 
 const S7Converter = () => {
@@ -76,6 +82,9 @@ const S7Converter = () => {
                         />
                     )}
                     {tab === "address" && <AddressTab value={value} />}
+                    {tab === "pointer" && <PointerTab />}
+                    {tab === "signal" && <SignalTab />}
+                    {tab === "realtime" && <RealTimeTab />}
                 </CardContent>
             </Card>
         </div>
