@@ -1561,7 +1561,7 @@ This is the first task with anything to look at in a browser. It folds in the re
 
 **Interfaces:**
 - Consumes: `isErr`, `parseNumber`, `interpret`, `formatHex`, `splitBE` from `src/lib/s7.js` (Tasks 1–5).
-- Produces: `ErrorBox({msg})`, `Row({label, value, mono, hint})`, `TabButton({active, onClick, children})` from `Shared.jsx`; `NumberTab({value, widthBytes, onValueChange, onWidthChange})` from `NumberTab.jsx`; default-exported `S7Converter` component.
+- Produces: `ErrorBox({msg})`, `Row({label, value, mono, hint})`, `TabButton({active, onClick, children})` from `Shared.jsx`; `NumberTab({value, widthBytes, raw, error, onRawChange, onValueChange, onWidthChange})` from `NumberTab.jsx`; default-exported `S7Converter` component owning `value` (number), `widthBytes` (1|2|4), `raw` (string) and `error` (string).
 
 - [ ] **Step 1: Create the shared UI helpers**
 
@@ -1810,13 +1810,13 @@ export default S7Converter;
 
 - [ ] **Step 4: Register the tool**
 
-In `src/lib/knowledgeTools.jsx`, change the import line to add `Binary`:
+In `src/lib/knowledgeTools.jsx`, change the import line (currently `import { BookOpenText, Crosshair, Repeat } from "lucide-react";`) to add `Binary`:
 
 ```js
-import { BookOpenText, Crosshair, Repeat, Zap, Binary } from "lucide-react";
+import { BookOpenText, Crosshair, Repeat, Binary } from "lucide-react";
 ```
 
-Then append this entry to the `knowledgeTools` array, after the `dc-motor-drive` entry:
+Then append this entry to the `knowledgeTools` array, after the `code-converter` entry (the last one on this branch):
 
 ```js
     {
@@ -1831,13 +1831,13 @@ Then append this entry to the `knowledgeTools` array, after the `dc-motor-drive`
 
 - [ ] **Step 5: Add the route**
 
-In `src/components/Layout.jsx`, add this import after the `DCMotorDrive` import:
+In `src/components/Layout.jsx`, add this import after the `CodeConverter` import (the last component import, around line 21):
 
 ```js
 import S7Converter from "./S7Converter";
 ```
 
-Then add this route after the `dc-motor-drive` route:
+Then add this route after the `code-converter` route (the last knowledge route, around line 56):
 
 ```jsx
                 <Route path='/knowledge/s7-converter' element={<S7Converter />} />
@@ -1875,7 +1875,7 @@ number is on screen."
 
 **Interfaces:**
 - Consumes: `isErr`, `parseAddress`, `formatAddress`, `bytesForAddress`, `overlaps`, `interpret`, `splitBE` from `src/lib/s7.js`; `ErrorBox`, `Row` from `./Shared`.
-- Produces: default-exported `AddressTab({ value, onWidthChange })`.
+- Produces: default-exported `AddressTab({ value })`. It owns its own address input state; `value` is the shared number from the shell.
 
 - [ ] **Step 1: Create the Address tab**
 
@@ -2421,7 +2421,7 @@ Neither path ever invents a signal name."
 - Modify: `src/components/S7Converter.jsx`
 
 **Interfaces:**
-- Consumes: `isErr`, `parseNumber`, `bitsToReal`, `realToBits`, `explainReal`, `parseS5Time`, `s5TimeFromBits`, `parseTime`, `formatTime` from `src/lib/s7.js`; `ErrorBox`, `Row` from `./Shared`.
+- Consumes: `isErr`, `parseNumber`, `realToBits`, `explainReal`, `parseS5Time`, `parseTime`, `formatTime` from `src/lib/s7.js`; `ErrorBox`, `Row` from `./Shared`. (`explainReal` already returns the decoded `value`, so `bitsToReal` is not imported here; `s5TimeFromBits` is exercised by the library tests rather than this tab.)
 - Produces: default-exported `RealTimeTab()`.
 
 - [ ] **Step 1: Create the REAL / Time tab**
@@ -2659,7 +2659,7 @@ Use the preview tooling with the `dev` configuration from `.claude/launch.json` 
 - [ ] **Step 2: Confirm the card appears on the dashboard**
 
 Navigate to `/knowledge`.
-Expected: five cards, the new one titled "Siemens PLC Data & Address Converter" with the `Binary` icon.
+Expected: four cards on this branch (G-Code & M-Code Guide, G-Code Trainer, Siemens ↔ Fanuc Converter, and the new one), the new one titled "Siemens PLC Data & Address Converter" with the `Binary` icon. This branch is cut from `main`, so the DC Motor card is not present here.
 
 - [ ] **Step 3: Verify the Number tab**
 
