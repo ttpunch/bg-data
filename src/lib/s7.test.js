@@ -168,6 +168,12 @@ describe("bytesForAddress", () => {
   it("reports the single byte a bit lives in", () => {
     expect(bytesForAddress(parseAddress("DB31.DBX60.4"))).toEqual([60]);
   });
+  it("returns an error instead of [] when given an errored address", () => {
+    expect(isErr(bytesForAddress(parseAddress("hello")))).toBe(true);
+  });
+  it("returns an error when given an object with no numeric widthBytes", () => {
+    expect(isErr(bytesForAddress({ db: 10, type: "WORD", byte: 20, bit: null }))).toBe(true);
+  });
 });
 
 describe("overlaps", () => {
@@ -185,5 +191,11 @@ describe("overlaps", () => {
   });
   it("detects a dword swallowing a word", () => {
     expect(overlaps(parseAddress("DB10.DBD20"), parseAddress("DB10.DBW22"))).toBe(true);
+  });
+  it("returns an error instead of false when the first address is errored", () => {
+    expect(isErr(overlaps(parseAddress("hello"), parseAddress("DB10.DBW20")))).toBe(true);
+  });
+  it("returns an error instead of false when the second address is errored", () => {
+    expect(isErr(overlaps(parseAddress("DB10.DBW20"), parseAddress("hello")))).toBe(true);
   });
 });

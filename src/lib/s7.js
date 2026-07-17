@@ -134,6 +134,10 @@ export function formatAddress(addr) {
 
 /** The byte offsets an address occupies. DBW20 occupies [20, 21]. */
 export function bytesForAddress(addr) {
+    if (isErr(addr)) return addr;
+    if (typeof addr.widthBytes !== "number") {
+        return { error: "Address has no numeric widthBytes; expected the object returned by parseAddress" };
+    }
     const out = [];
     for (let i = 0; i < addr.widthBytes; i++) out.push(addr.byte + i);
     return out;
@@ -142,8 +146,21 @@ export function bytesForAddress(addr) {
 /**
  * Do two addresses share any byte? The classic trap: DBW20 and DBW21 overlap,
  * because DBW20 is bytes 20-21 and DBW21 is bytes 21-22.
+ *
+ * NOTE: this can return { error: string } instead of a boolean when either
+ * argument is malformed. Callers MUST check isErr(result) before using the
+ * result as a boolean — `if (overlaps(a, b))` would treat an error object as
+ * truthy and wrongly conclude "overlaps".
  */
 export function overlaps(a, b) {
+    if (isErr(a)) return a;
+    if (isErr(b)) return b;
+    if (typeof a.widthBytes !== "number") {
+        return { error: "First address has no numeric widthBytes; expected the object returned by parseAddress" };
+    }
+    if (typeof b.widthBytes !== "number") {
+        return { error: "Second address has no numeric widthBytes; expected the object returned by parseAddress" };
+    }
     if (a.db !== b.db) return false;
     const aEnd = a.byte + a.widthBytes - 1;
     const bEnd = b.byte + b.widthBytes - 1;
