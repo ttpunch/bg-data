@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isErr, parseNumber, toSigned, toUnsigned, formatHex, assembleBE, splitBE, parseAddress, formatAddress, bytesForAddress, overlaps, bcdToDec, decToBcd, bitsToReal, realToBits, explainReal, interpret } from "./s7";
+import { isErr, parseNumber, toSigned, toUnsigned, formatHex, assembleBE, splitBE, parseAddress, formatAddress, bytesForAddress, overlaps, bcdToDec, decToBcd, bitsToReal, realToBits, explainReal, interpret, AREA_IDS, ANY_TYPE_CODES, parsePointer, formatPointer, encodeAreaPointer, decodeAreaPointer, encodeAnyPointer, decodeAnyPointer, S5_BASES, s5TimeFromBits, parseS5Time, parseTime, formatTime } from "./s7";
 
 describe("isErr", () => {
   it("recognises an error object", () => {
@@ -305,5 +305,141 @@ describe("interpret", () => {
   });
   it("reports valid BCD", () => {
     expect(interpret(0x99, 1).bcd).toBe(99);
+  });
+});
+
+describe("parsePointer", () => {
+  it("parses a standard P# pointer", () => {
+    expect(parsePointer("P#DB10.DBX20.0 BYTE 4")).toEqual({
+      area: "DB", db: 10, byte: 20, bit: 0, type: "BYTE", count: 4,
+    });
+  });
+  it("is case and whitespace insensitive", () => {
+    expect(parsePointer("  p#db10.dbx20.0   byte 4  ").db).toBe(10);
+  });
+  it("rejects a bit number above 7", () => {
+    expect(isErr(parsePointer("P#DB10.DBX20.8 BYTE 4"))).toBe(true);
+  });
+  it("rejects an unknown data type", () => {
+    expect(isErr(parsePointer("P#DB10.DBX20.0 WIDGET 4"))).toBe(true);
+  });
+  it("rejects gibberish", () => {
+    expect(isErr(parsePointer("hello"))).toBe(true);
+  });
+  it("round-trips through formatPointer", () => {
+    expect(formatPointer(parsePointer("P#DB10.DBX20.0 BYTE 4"))).toBe("P#DB10.DBX20.0 BYTE 4");
+  });
+});
+
+describe("area pointer", () => {
+  it("packs area, byte offset and bit into 32 bits", () => {
+    expect(encodeAreaPointer({ area: "DB", byte: 20, bit: 0 })).toBe(0x840000a0);
+  });
+  it("packs a non-zero bit number", () => {
+    expect(encodeAreaPointer({ area: "DB", byte: 60, bit: 4 })).toBe(0x840001e4);
+  });
+  it("rejects an unknown area", () => {
+    expect(isErr(encodeAreaPointer({ area: "ZZ", byte: 0, bit: 0 }))).toBe(true);
+  });
+  it("round-trips with decodeAreaPointer", () => {
+    const p = { area: "DB", byte: 60, bit: 4 };
+    const d = decodeAreaPointer(encodeAreaPointer(p));
+    expect({ area: d.area, byte: d.byte, bit: d.bit }).toEqual(p);
+  });
+});
+
+describe("ANY pointer", () => {
+  it("builds the 10-byte descriptor", () => {
+    expect(encodeAnyPointer({ area: "DB", db: 10, byte: 20, bit: 0, type: "BYTE", count: 4 }))
+      .toEqual([0x10, 0x02, 0x00, 0x04, 0x00, 0x0a, 0x84, 0x00, 0x00, 0xa0]);
+  });
+  it("unpacks the 10-byte descriptor", () => {
+    expect(decodeAnyPointer([0x10, 0x02, 0x00, 0x04, 0x00, 0x0a, 0x84, 0x00, 0x00, 0xa0]))
+      .toEqual({ type: "BYTE", count: 4, db: 10, area: "DB", byte: 20, bit: 0 });
+  });
+  it("rejects a wrong length", () => {
+    expect(isErr(decodeAnyPointer([0x10, 0x02]))).toBe(true);
+  });
+  it("rejects a missing ANY id byte", () => {
+    expect(isErr(decodeAnyPointer([0x11, 0x02, 0, 4, 0, 10, 0x84, 0, 0, 0xa0]))).toBe(true);
+  });
+  it("round-trips", () => {
+    const p = { area: "DB", db: 31, byte: 60, bit: 4, type: "WORD", count: 2 };
+    expect(decodeAnyPointer(encodeAnyPointer(p))).toEqual(p);
+  });
+});
+
+describe("area and type tables", () => {
+  it("uses the documented area ids", () => {
+    expect([AREA_IDS.DB, AREA_IDS.I, AREA_IDS.Q, AREA_IDS.M]).toEqual([0x84, 0x81, 0x82, 0x83]);
+  });
+  it("uses the documented ANY type codes", () => {
+    expect([ANY_TYPE_CODES.BOOL, ANY_TYPE_CODES.BYTE, ANY_TYPE_CODES.REAL]).toEqual([0x01, 0x02, 0x08]);
+  });
+});
+
+describe("parseS5Time", () => {
+  it("encodes S5T#2s using the smallest base that fits", () => {
+    expect(parseS5Time("S5T#2s")).toEqual({
+      base: "10ms", baseMs: 10, value: 200, ms: 2000, bits: 0x0200,
+    });
+  });
+  it("encodes a value that needs the 100ms base", () => {
+    expect(parseS5Time("S5T#20s")).toEqual({
+      base: "100ms", baseMs: 100, value: 200, ms: 20000, bits: 0x1200,
+    });
+  });
+  it("encodes the smallest representable time", () => {
+    expect(parseS5Time("S5T#10ms").bits).toBe(0x0001);
+  });
+  it("parses compound notation", () => {
+    expect(parseS5Time("S5T#1m30s").ms).toBe(90000);
+  });
+  it("rejects a duration beyond S5TIME range", () => {
+    expect(isErr(parseS5Time("S5T#10000s"))).toBe(true);
+  });
+  it("rejects gibberish", () => {
+    expect(isErr(parseS5Time("hello"))).toBe(true);
+  });
+});
+
+describe("s5TimeFromBits", () => {
+  it("decodes 16#0200 back to 2s", () => {
+    expect(s5TimeFromBits(0x0200)).toEqual({
+      base: "10ms", baseMs: 10, value: 200, ms: 2000, bits: 0x0200,
+    });
+  });
+  it("rejects an invalid BCD payload", () => {
+    expect(isErr(s5TimeFromBits(0x0abc))).toBe(true);
+  });
+  it("has the documented bases", () => {
+    expect(S5_BASES.map((b) => b.ms)).toEqual([10, 100, 1000, 10000]);
+  });
+});
+
+describe("parseTime / formatTime", () => {
+  it("parses full compound TIME notation", () => {
+    expect(parseTime("T#1d2h3m4s5ms")).toBe(93784005);
+  });
+  it("parses seconds", () => {
+    expect(parseTime("T#2s")).toBe(2000);
+  });
+  it("rejects gibberish", () => {
+    expect(isErr(parseTime("hello"))).toBe(true);
+  });
+  it("formats compound TIME", () => {
+    expect(formatTime(93784005)).toBe("T#1d2h3m4s5ms");
+  });
+  it("formats zero", () => {
+    expect(formatTime(0)).toBe("T#0ms");
+  });
+  it("omits zero components", () => {
+    expect(formatTime(2000)).toBe("T#2s");
+  });
+  it("round-trips", () => {
+    expect(formatTime(parseTime("T#1d2h3m4s5ms"))).toBe("T#1d2h3m4s5ms");
+  });
+  it("rejects a negative duration", () => {
+    expect(isErr(formatTime(-1))).toBe(true);
   });
 });

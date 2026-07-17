@@ -266,3 +266,230 @@ export function interpret(value, widthBytes) {
     }
     return out;
 }
+
+// ── Pointers ───────────────────────────────────────────────────────────────────
+
+/** S7 memory area identifiers, as used in byte 6 of an ANY pointer. */
+export const AREA_IDS = { I: 0x81, Q: 0x82, M: 0x83, DB: 0x84, DI: 0x85, L: 0x86 };
+
+/** S7 data type codes, as used in byte 1 of an ANY pointer. */
+export const ANY_TYPE_CODES = {
+    BOOL: 0x01, BYTE: 0x02, CHAR: 0x03, WORD: 0x04,
+    INT: 0x05, DWORD: 0x06, DINT: 0x07, REAL: 0x08,
+};
+
+const ANY_TYPE_NAMES = Object.keys(ANY_TYPE_CODES);
+
+/** Parse a P# pointer: P#DB10.DBX20.0 BYTE 4 */
+export function parsePointer(input) {
+    if (typeof input !== "string") return { error: "Pointer must be a string" };
+    const s = input.trim().toUpperCase().replace(/\s+/g, " ");
+    const m = /^P#DB(\d+)\.DBX(\d+)\.(\d+) ([A-Z]+) (\d+)$/.exec(s);
+    if (!m) {
+        return { error: `Cannot parse "${input}". Expected e.g. P#DB10.DBX20.0 BYTE 4` };
+    }
+
+    const bit = parseInt(m[3], 10);
+    if (bit > 7) return { error: `Bit number must be 0-7, got ${bit}` };
+
+    const type = m[4];
+    if (!ANY_TYPE_NAMES.includes(type)) {
+        return { error: `Unknown data type "${type}". Expected one of ${ANY_TYPE_NAMES.join(", ")}.` };
+    }
+
+    return {
+        area: "DB",
+        db: parseInt(m[1], 10),
+        byte: parseInt(m[2], 10),
+        bit,
+        type,
+        count: parseInt(m[5], 10),
+    };
+}
+
+/** Render a pointer back to P# notation. */
+export function formatPointer(p) {
+    return `P#DB${p.db}.DBX${p.byte}.${p.bit} ${p.type} ${p.count}`;
+}
+
+/**
+ * Pack a 32-bit area pointer.
+ *   bits 0-2   bit number
+ *   bits 3-18  byte offset
+ *   bits 24-31 area id
+ * So P#DB10.DBX20.0 packs to 16#840000A0 (20 * 8 = 160 = 16#A0).
+ */
+export function encodeAreaPointer(p) {
+    const areaId = AREA_IDS[p.area];
+    if (areaId === undefined) {
+        return { error: `Unknown area "${p.area}". Expected one of ${Object.keys(AREA_IDS).join(", ")}.` };
+    }
+    if (p.byte > 0xffff) return { error: `Byte offset ${p.byte} exceeds the 16-bit range` };
+    if (p.bit > 7) return { error: `Bit number must be 0-7, got ${p.bit}` };
+    return areaId * 2 ** 24 + p.byte * 8 + p.bit;
+}
+
+/** Unpack a 32-bit area pointer. */
+export function decodeAreaPointer(u32) {
+    const u = toUnsigned(u32, 32);
+    const areaId = Math.floor(u / 2 ** 24) % 256;
+    const area = Object.keys(AREA_IDS).find((k) => AREA_IDS[k] === areaId) || null;
+    const lower = u % 2 ** 24;
+    return { area, areaId, byte: Math.floor(lower / 8), bit: lower % 8 };
+}
+
+/**
+ * Build the 10-byte ANY pointer descriptor.
+ *   byte 0     16#10 (ANY id)
+ *   byte 1     data type code
+ *   bytes 2-3  repetition count
+ *   bytes 4-5  DB number
+ *   byte 6     area id
+ *   bytes 7-9  24-bit byte.bit offset
+ */
+export function encodeAnyPointer(p) {
+    const typeCode = ANY_TYPE_CODES[p.type];
+    if (typeCode === undefined) {
+        return { error: `Unknown data type "${p.type}". Expected one of ${ANY_TYPE_NAMES.join(", ")}.` };
+    }
+    const areaId = AREA_IDS[p.area];
+    if (areaId === undefined) {
+        return { error: `Unknown area "${p.area}". Expected one of ${Object.keys(AREA_IDS).join(", ")}.` };
+    }
+
+    const offset = p.byte * 8 + p.bit; // fits in 24 bits, so shifts are safe below
+    return [
+        0x10,
+        typeCode,
+        Math.floor(p.count / 256) % 256,
+        p.count % 256,
+        Math.floor(p.db / 256) % 256,
+        p.db % 256,
+        areaId,
+        Math.floor(offset / 65536) % 256,
+        Math.floor(offset / 256) % 256,
+        offset % 256,
+    ];
+}
+
+/** Unpack a 10-byte ANY pointer descriptor. */
+export function decodeAnyPointer(bytes) {
+    if (!Array.isArray(bytes) || bytes.length !== 10) {
+        return { error: `An ANY pointer is exactly 10 bytes, got ${Array.isArray(bytes) ? bytes.length : "non-array"}` };
+    }
+    if (bytes[0] !== 0x10) {
+        return { error: `Byte 0 must be 16#10 (the ANY id), got 16#${bytes[0].toString(16).toUpperCase()}` };
+    }
+
+    const type = ANY_TYPE_NAMES.find((k) => ANY_TYPE_CODES[k] === bytes[1]);
+    if (!type) {
+        return { error: `Unknown data type code 16#${bytes[1].toString(16).toUpperCase()} in byte 1` };
+    }
+
+    const areaId = bytes[6];
+    const area = Object.keys(AREA_IDS).find((k) => AREA_IDS[k] === areaId) || null;
+    const offset = bytes[7] * 65536 + bytes[8] * 256 + bytes[9];
+
+    return {
+        type,
+        count: bytes[2] * 256 + bytes[3],
+        db: bytes[4] * 256 + bytes[5],
+        area,
+        byte: Math.floor(offset / 8),
+        bit: offset % 8,
+    };
+}
+
+// ── S5TIME ─────────────────────────────────────────────────────────────────────
+
+/**
+ * S5TIME layout, 16 bits:
+ *   bits 12-13  time base (00 = 10ms, 01 = 100ms, 10 = 1s, 11 = 10s)
+ *   bits 0-11   value, as 3 packed BCD digits (0-999)
+ * STEP7 picks the SMALLEST base that fits, for best resolution.
+ */
+export const S5_BASES = [
+    { code: 0, ms: 10, label: "10ms" },
+    { code: 1, ms: 100, label: "100ms" },
+    { code: 2, ms: 1000, label: "1s" },
+    { code: 3, ms: 10000, label: "10s" },
+];
+
+/** Decode a 16-bit S5TIME word. */
+export function s5TimeFromBits(u16) {
+    const u = toUnsigned(u16, 16);
+    const base = S5_BASES[Math.floor(u / 2 ** 12) % 4];
+    const value = bcdToDec(u % 2 ** 12);
+    if (isErr(value)) return { error: `S5TIME payload is not valid BCD: ${value.error}` };
+    return { base: base.label, baseMs: base.ms, value, ms: value * base.ms, bits: u };
+}
+
+/** Parse S5T#2s, S5T#1m30s, S5T#10ms ... */
+export function parseS5Time(input) {
+    if (typeof input !== "string") return { error: "S5TIME must be a string" };
+    const s = input.trim().toUpperCase().replace(/\s+/g, "");
+    const m = /^S5T#(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?(?:(\d+)MS)?$/.exec(s);
+    if (!m || !m.slice(1).some((g) => g !== undefined)) {
+        return { error: `Cannot parse "${input}". Expected e.g. S5T#2s or S5T#1m30s` };
+    }
+
+    const ms =
+        Number(m[1] || 0) * 3600000 +
+        Number(m[2] || 0) * 60000 +
+        Number(m[3] || 0) * 1000 +
+        Number(m[4] || 0);
+
+    if (ms === 0) return { error: "S5TIME must be at least 10ms" };
+
+    // Smallest base whose value fits 3 BCD digits, matching STEP7.
+    const base = S5_BASES.find((b) => ms % b.ms === 0 && ms / b.ms <= 999);
+    if (!base) {
+        return { error: `${ms}ms cannot be represented as S5TIME (range is 10ms to 9990s, value must fit 3 BCD digits)` };
+    }
+
+    const value = ms / base.ms;
+    const bcd = decToBcd(value);
+    if (isErr(bcd)) return bcd;
+
+    return { base: base.label, baseMs: base.ms, value, ms, bits: base.code * 2 ** 12 + bcd };
+}
+
+// ── TIME (DINT milliseconds) ───────────────────────────────────────────────────
+
+/** Parse T#1d2h3m4s5ms to milliseconds. */
+export function parseTime(input) {
+    if (typeof input !== "string") return { error: "TIME must be a string" };
+    const s = input.trim().toUpperCase().replace(/\s+/g, "");
+    const m = /^T#(?:(\d+)D)?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?(?:(\d+)MS)?$/.exec(s);
+    if (!m || !m.slice(1).some((g) => g !== undefined)) {
+        return { error: `Cannot parse "${input}". Expected e.g. T#1d2h3m4s5ms` };
+    }
+    return (
+        Number(m[1] || 0) * 86400000 +
+        Number(m[2] || 0) * 3600000 +
+        Number(m[3] || 0) * 60000 +
+        Number(m[4] || 0) * 1000 +
+        Number(m[5] || 0)
+    );
+}
+
+/** Render milliseconds as T#1d2h3m4s5ms, omitting zero components. */
+export function formatTime(ms) {
+    if (!Number.isInteger(ms)) return { error: "TIME requires an integer number of milliseconds" };
+    if (ms < 0) return { error: "TIME cannot be negative" };
+    if (ms === 0) return "T#0ms";
+
+    const d = Math.floor(ms / 86400000);
+    const h = Math.floor((ms % 86400000) / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const rem = ms % 1000;
+
+    let out = "T#";
+    if (d) out += `${d}d`;
+    if (h) out += `${h}h`;
+    if (m) out += `${m}m`;
+    if (s) out += `${s}s`;
+    if (rem) out += `${rem}ms`;
+    return out;
+}
