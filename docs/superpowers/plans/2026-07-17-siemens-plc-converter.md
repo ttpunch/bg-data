@@ -1810,13 +1810,13 @@ export default S7Converter;
 
 - [ ] **Step 4: Register the tool**
 
-In `src/lib/knowledgeTools.jsx`, change the import line (currently `import { BookOpenText, Crosshair, Repeat } from "lucide-react";`) to add `Binary`:
+In `src/lib/knowledgeTools.jsx`, change the import line (currently `import { BookOpenText, Crosshair, Repeat, Zap } from "lucide-react";`) to add `Binary`:
 
 ```js
-import { BookOpenText, Crosshair, Repeat, Binary } from "lucide-react";
+import { BookOpenText, Crosshair, Repeat, Zap, Binary } from "lucide-react";
 ```
 
-Then append this entry to the `knowledgeTools` array, after the `code-converter` entry (the last one on this branch):
+Then append this entry to the `knowledgeTools` array, after the `dc-motor-drive` entry (the last one):
 
 ```js
     {
@@ -1831,13 +1831,13 @@ Then append this entry to the `knowledgeTools` array, after the `code-converter`
 
 - [ ] **Step 5: Add the route**
 
-In `src/components/Layout.jsx`, add this import after the `CodeConverter` import (the last component import, around line 21):
+In `src/components/Layout.jsx`, add this import after the `DCMotorDrive` import (the last component import, around line 22):
 
 ```js
 import S7Converter from "./S7Converter";
 ```
 
-Then add this route after the `code-converter` route (the last knowledge route, around line 56):
+Then add this route after the `dc-motor-drive` route (the last knowledge route, around line 58):
 
 ```jsx
                 <Route path='/knowledge/s7-converter' element={<S7Converter />} />
@@ -2659,7 +2659,7 @@ Use the preview tooling with the `dev` configuration from `.claude/launch.json` 
 - [ ] **Step 2: Confirm the card appears on the dashboard**
 
 Navigate to `/knowledge`.
-Expected: four cards on this branch (G-Code & M-Code Guide, G-Code Trainer, Siemens ↔ Fanuc Converter, and the new one), the new one titled "Siemens PLC Data & Address Converter" with the `Binary` icon. This branch is cut from `main`, so the DC Motor card is not present here.
+Expected: five cards (G-Code & M-Code Guide, G-Code Trainer, Siemens ↔ Fanuc Converter, DC Motor & DC Drive, and the new one), the new one titled "Siemens PLC Data & Address Converter" with the `Binary` icon.
 
 - [ ] **Step 3: Verify the Number tab**
 
