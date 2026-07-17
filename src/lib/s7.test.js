@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isErr, parseNumber, toSigned, toUnsigned, formatHex } from "./s7";
+import { isErr, parseNumber, toSigned, toUnsigned, formatHex, assembleBE, splitBE, parseAddress, formatAddress, bytesForAddress, overlaps } from "./s7";
 
 describe("isErr", () => {
   it("recognises an error object", () => {
@@ -81,5 +81,109 @@ describe("formatHex", () => {
   });
   it("formats a full DWORD", () => {
     expect(formatHex(0xffffffff, 4)).toBe("16#FFFFFFFF");
+  });
+});
+
+describe("assembleBE", () => {
+  it("assembles MSB first, not LSB first", () => {
+    expect(assembleBE([0x12, 0x34])).toBe(0x1234);
+  });
+  it("assembles a DWORD without going negative", () => {
+    expect(assembleBE([0xff, 0xff, 0xff, 0xff])).toBe(4294967295);
+  });
+  it("assembles a single byte", () => {
+    expect(assembleBE([0xab])).toBe(0xab);
+  });
+});
+
+describe("splitBE", () => {
+  it("splits MSB first", () => {
+    expect(splitBE(0x1234, 2)).toEqual([0x12, 0x34]);
+  });
+  it("splits a DWORD", () => {
+    expect(splitBE(0x12345678, 4)).toEqual([0x12, 0x34, 0x56, 0x78]);
+  });
+  it("round-trips with assembleBE", () => {
+    expect(assembleBE(splitBE(0xdeadbeef, 4))).toBe(0xdeadbeef);
+  });
+});
+
+describe("parseAddress", () => {
+  it("parses a word address", () => {
+    expect(parseAddress("DB10.DBW20")).toEqual({
+      db: 10, type: "WORD", byte: 20, bit: null, widthBytes: 2,
+    });
+  });
+  it("parses a byte address", () => {
+    expect(parseAddress("DB10.DBB20")).toEqual({
+      db: 10, type: "BYTE", byte: 20, bit: null, widthBytes: 1,
+    });
+  });
+  it("parses a dword address", () => {
+    expect(parseAddress("DB10.DBD20")).toEqual({
+      db: 10, type: "DWORD", byte: 20, bit: null, widthBytes: 4,
+    });
+  });
+  it("parses a bit address", () => {
+    expect(parseAddress("DB31.DBX60.4")).toEqual({
+      db: 31, type: "BOOL", byte: 60, bit: 4, widthBytes: 1,
+    });
+  });
+  it("is case and whitespace insensitive", () => {
+    expect(parseAddress(" db10.dbw20 ").type).toBe("WORD");
+  });
+  it("rejects a bit number above 7", () => {
+    expect(isErr(parseAddress("DB10.DBX20.8"))).toBe(true);
+  });
+  it("rejects DBX without a bit number", () => {
+    expect(isErr(parseAddress("DB10.DBX20"))).toBe(true);
+  });
+  it("rejects a bit number on a word address", () => {
+    expect(isErr(parseAddress("DB10.DBW20.1"))).toBe(true);
+  });
+  it("rejects DB0", () => {
+    expect(isErr(parseAddress("DB0.DBW20"))).toBe(true);
+  });
+  it("rejects gibberish", () => {
+    expect(isErr(parseAddress("hello"))).toBe(true);
+  });
+});
+
+describe("formatAddress", () => {
+  it("round-trips a word address", () => {
+    expect(formatAddress(parseAddress("DB10.DBW20"))).toBe("DB10.DBW20");
+  });
+  it("round-trips a bit address", () => {
+    expect(formatAddress(parseAddress("DB31.DBX60.4"))).toBe("DB31.DBX60.4");
+  });
+});
+
+describe("bytesForAddress", () => {
+  it("reports the two bytes a word occupies", () => {
+    expect(bytesForAddress(parseAddress("DB10.DBW20"))).toEqual([20, 21]);
+  });
+  it("reports the four bytes a dword occupies", () => {
+    expect(bytesForAddress(parseAddress("DB10.DBD20"))).toEqual([20, 21, 22, 23]);
+  });
+  it("reports the single byte a bit lives in", () => {
+    expect(bytesForAddress(parseAddress("DB31.DBX60.4"))).toEqual([60]);
+  });
+});
+
+describe("overlaps", () => {
+  it("detects the classic DBW20 / DBW21 overlap", () => {
+    expect(overlaps(parseAddress("DB10.DBW20"), parseAddress("DB10.DBW21"))).toBe(true);
+  });
+  it("detects the DBW19 / DBW20 overlap", () => {
+    expect(overlaps(parseAddress("DB10.DBW19"), parseAddress("DB10.DBW20"))).toBe(true);
+  });
+  it("reports no overlap for adjacent non-overlapping words", () => {
+    expect(overlaps(parseAddress("DB10.DBW20"), parseAddress("DB10.DBW22"))).toBe(false);
+  });
+  it("reports no overlap across different DBs", () => {
+    expect(overlaps(parseAddress("DB10.DBW20"), parseAddress("DB11.DBW20"))).toBe(false);
+  });
+  it("detects a dword swallowing a word", () => {
+    expect(overlaps(parseAddress("DB10.DBD20"), parseAddress("DB10.DBW22"))).toBe(true);
   });
 });
