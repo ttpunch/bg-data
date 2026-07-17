@@ -20,6 +20,7 @@ import GMCodeGuide from "./GMCodeGuide";
 import GCodeTrainer from "./GCodeTrainer";
 import CodeConverter from "./CodeConverter";
 import DCMotorDrive from "./DCMotorDrive";
+import S7Converter from "./S7Converter";
 
 
 const Layout = () => {
@@ -56,6 +57,7 @@ const Layout = () => {
                 <Route path='/knowledge/gcode-trainer' element={<GCodeTrainer />} />
                 <Route path='/knowledge/code-converter' element={<CodeConverter />} />
                 <Route path='/knowledge/dc-motor-drive' element={<DCMotorDrive />} />
+                <Route path='/knowledge/s7-converter' element={<S7Converter />} />
               </Routes>
             </main>
           </div>

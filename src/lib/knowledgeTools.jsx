@@ -1,4 +1,4 @@
-import { BookOpenText, Crosshair, Repeat, Zap } from "lucide-react";
+import { BookOpenText, Crosshair, Repeat, Zap, Binary } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  KNOWLEDGE TOOL REGISTRY
@@ -33,5 +33,13 @@ export const knowledgeTools = [
         description: "How a DC motor works, an interactive motor playground, the drive's speed-control envelope (armature voltage, base/full speed, flux, field weakening), plus ABB DCS880 & Siemens 6RA80 commissioning parameters.",
         icon: Zap,
         path: "/knowledge/dc-motor-drive",
+    },
+    {
+        id: "s7-converter",
+        title: "Siemens PLC Data & Address Converter",
+        description:
+            "Hex/dec/binary with signed and BCD, DB word/byte/bit decoding with big-endian byte maps and overlap warnings, P#/ANY pointers, REAL and S5TIME, plus NC/PLC interface signal lookup for 840D sl, 840D powerline and 828D.",
+        icon: Binary,
+        path: "/knowledge/s7-converter",
     },
 ];
