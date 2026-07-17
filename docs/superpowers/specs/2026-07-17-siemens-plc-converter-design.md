@@ -185,13 +185,22 @@ The dataset stores a range plus an offset rule rather than duplicating each sign
 
 - Only signals that can be stated with high confidence ship. Nothing is guessed.
 - Every entry carries a `source`.
-- The 840D sl/powerline set will be substantially larger than the 828D set, reflecting
-  genuine confidence differences. This asymmetry is expected, not a defect.
 - Address math works for **any** address. Named lookup covers only what is verified.
 - Unknown addresses return an honest empty state: *"not in dataset — check the Lists
   manual"*. The tool never invents a signal name.
 
-Initial seed target: roughly 40–80 entries for 840D sl/powerline, fewer for 828D.
+**Initial seed reality:**
+
+- **840D sl / powerline** — seeded with the high-confidence core (axis/spindle DB31–61,
+  channel DB21–30, mode group DB11).
+- **828D** — ships with **no seeded entries**. Applying the accuracy policy honestly: the
+  828D interface map (DB1200/1600/1800/2600/3300/3800 ranges) is not something that can be
+  stated with high confidence from memory, and a guessed 828D signal name is exactly the
+  failure this tool exists to prevent. The control selector, lookup, and honest-miss path
+  are fully built and tested for 828D — only the data is absent. Populating it is a data
+  edit against the 828D Lists manual, requiring no code change.
+
+This asymmetry is a deliberate consequence of the policy, not an oversight.
 
 ## 6. Error handling
 
@@ -223,7 +232,7 @@ explainReal(0x7F800000)   → +Inf
 explainReal(0xFFC00000)   → NaN
 bcdToDec(0x99)            → 99
 bcdToDec(0x9A)            → { error }
-parseS5Time("S5T#2s")     → base 1s, value 2
+parseS5Time("S5T#2s")     → base 10ms, value 200, bits 16#0200
 pointer round-trip        → parse → encode → decode is identity
 ```
 
