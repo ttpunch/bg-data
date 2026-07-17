@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isErr, parseNumber, toSigned, toUnsigned, formatHex, assembleBE, splitBE, parseAddress, formatAddress, bytesForAddress, overlaps } from "./s7";
+import { isErr, parseNumber, toSigned, toUnsigned, formatHex, assembleBE, splitBE, parseAddress, formatAddress, bytesForAddress, overlaps, bcdToDec, decToBcd, bitsToReal, realToBits, explainReal, interpret } from "./s7";
 
 describe("isErr", () => {
   it("recognises an error object", () => {
@@ -197,5 +197,113 @@ describe("overlaps", () => {
   });
   it("returns an error instead of false when the second address is errored", () => {
     expect(isErr(overlaps(parseAddress("DB10.DBW20"), parseAddress("hello")))).toBe(true);
+  });
+});
+
+describe("bcdToDec", () => {
+  it("decodes packed BCD", () => {
+    expect(bcdToDec(0x99)).toBe(99);
+    expect(bcdToDec(0x1234)).toBe(1234);
+  });
+  it("decodes zero", () => {
+    expect(bcdToDec(0)).toBe(0);
+  });
+  it("rejects a nibble above 9", () => {
+    expect(isErr(bcdToDec(0x9a))).toBe(true);
+  });
+  it("rejects a negative value", () => {
+    expect(isErr(bcdToDec(-1))).toBe(true);
+  });
+});
+
+describe("decToBcd", () => {
+  it("encodes packed BCD", () => {
+    expect(decToBcd(99)).toBe(0x99);
+    expect(decToBcd(1234)).toBe(0x1234);
+  });
+  it("encodes zero", () => {
+    expect(decToBcd(0)).toBe(0);
+  });
+  it("round-trips with bcdToDec", () => {
+    expect(bcdToDec(decToBcd(4095))).toBe(4095);
+  });
+  it("rejects a negative number", () => {
+    expect(isErr(decToBcd(-1))).toBe(true);
+  });
+});
+
+describe("bitsToReal / realToBits", () => {
+  it("decodes 1.0", () => {
+    expect(bitsToReal(0x3f800000)).toBe(1.0);
+  });
+  it("decodes -2.0", () => {
+    expect(bitsToReal(0xc0000000)).toBe(-2.0);
+  });
+  it("encodes 1.0", () => {
+    expect(realToBits(1.0)).toBe(0x3f800000);
+  });
+  it("round-trips a representable value", () => {
+    expect(bitsToReal(realToBits(0.5))).toBe(0.5);
+  });
+});
+
+describe("explainReal", () => {
+  it("breaks down 1.0", () => {
+    const r = explainReal(0x3f800000);
+    expect(r.sign).toBe(0);
+    expect(r.exponent).toBe(127);
+    expect(r.mantissa).toBe(0);
+    expect(r.value).toBe(1.0);
+    expect(r.special).toBe(null);
+  });
+  it("identifies positive zero", () => {
+    expect(explainReal(0x00000000).special).toBe("+0");
+  });
+  it("identifies negative zero", () => {
+    expect(explainReal(0x80000000).special).toBe("-0");
+  });
+  it("identifies positive infinity", () => {
+    expect(explainReal(0x7f800000).special).toBe("+Infinity");
+  });
+  it("identifies negative infinity", () => {
+    expect(explainReal(0xff800000).special).toBe("-Infinity");
+  });
+  it("identifies NaN", () => {
+    expect(explainReal(0xffc00000).special).toBe("NaN");
+  });
+  it("identifies a denormal", () => {
+    expect(explainReal(0x00000001).special).toBe("denormal");
+  });
+  it("reports the sign bit of a negative number", () => {
+    expect(explainReal(0xc0000000).sign).toBe(1);
+  });
+});
+
+describe("interpret", () => {
+  it("reads a WORD both ways", () => {
+    const r = interpret(0xffff, 2);
+    expect(r.hex).toBe("16#FFFF");
+    expect(r.unsigned).toBe(65535);
+    expect(r.signed).toBe(-1);
+    expect(r.binary).toBe("1111111111111111");
+    expect(r.bytes).toEqual([0xff, 0xff]);
+  });
+  it("labels the WORD types", () => {
+    expect(interpret(0, 2).type).toBe("WORD / INT");
+  });
+  it("adds REAL for a DWORD", () => {
+    const r = interpret(0x3f800000, 4);
+    expect(r.real).toBe(1.0);
+    expect(r.realExplain.exponent).toBe(127);
+    expect(r.type).toBe("DWORD / DINT / REAL");
+  });
+  it("omits REAL for a WORD", () => {
+    expect(interpret(0, 2).real).toBeUndefined();
+  });
+  it("surfaces a BCD error rather than a wrong number", () => {
+    expect(isErr(interpret(0x9a, 1).bcd)).toBe(true);
+  });
+  it("reports valid BCD", () => {
+    expect(interpret(0x99, 1).bcd).toBe(99);
   });
 });

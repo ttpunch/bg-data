@@ -166,3 +166,103 @@ export function overlaps(a, b) {
     const bEnd = b.byte + b.widthBytes - 1;
     return a.byte <= bEnd && b.byte <= aEnd;
 }
+
+// ── BCD ────────────────────────────────────────────────────────────────────────
+
+/** Decode packed BCD. bcdToDec(0x99) === 99. Rejects any nibble above 9. */
+export function bcdToDec(value) {
+    if (!Number.isInteger(value)) return { error: "BCD requires an integer" };
+    if (value < 0) return { error: "BCD values cannot be negative" };
+
+    let result = 0;
+    let mult = 1;
+    let v = value;
+    while (v > 0) {
+        const nib = v % 16;
+        if (nib > 9) {
+            return { error: `Not valid BCD: nibble 16#${nib.toString(16).toUpperCase()} is above 9` };
+        }
+        result += nib * mult;
+        mult *= 10;
+        v = Math.floor(v / 16);
+    }
+    return result;
+}
+
+/** Encode to packed BCD. decToBcd(99) === 0x99. */
+export function decToBcd(n) {
+    if (!Number.isInteger(n)) return { error: "BCD requires an integer" };
+    if (n < 0) return { error: "BCD values cannot be negative" };
+
+    let result = 0;
+    let shift = 0;
+    let v = n;
+    while (v > 0) {
+        result += (v % 10) * 16 ** shift;
+        v = Math.floor(v / 10);
+        shift++;
+    }
+    return result;
+}
+
+// ── IEEE 754 single precision (S7 REAL) ────────────────────────────────────────
+
+/** Read 32 bits as an S7 REAL. */
+export function bitsToReal(u32) {
+    const view = new DataView(new ArrayBuffer(4));
+    view.setUint32(0, toUnsigned(u32, 32), false); // false = big-endian
+    return view.getFloat32(0, false);
+}
+
+/** Write an S7 REAL to its 32-bit pattern. */
+export function realToBits(f) {
+    const view = new DataView(new ArrayBuffer(4));
+    view.setFloat32(0, f, false);
+    return view.getUint32(0, false);
+}
+
+/** Break a REAL's 32 bits into sign / exponent / mantissa, naming special cases. */
+export function explainReal(u32) {
+    const u = toUnsigned(u32, 32);
+    const sign = Math.floor(u / 2 ** 31) % 2;
+    const exponent = Math.floor(u / 2 ** 23) % 256;
+    const mantissa = u % 2 ** 23;
+    const value = bitsToReal(u);
+
+    let special = null;
+    if (exponent === 0xff) {
+        special = mantissa === 0 ? (sign ? "-Infinity" : "+Infinity") : "NaN";
+    } else if (exponent === 0) {
+        special = mantissa === 0 ? (sign ? "-0" : "+0") : "denormal";
+    }
+
+    return { sign, exponent, mantissa, value, special };
+}
+
+// ── Rollup ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Every reading of the same bits, for the UI to render side by side.
+ * `bcd` may be a structured error — invalid BCD is a real condition, not a number.
+ */
+export function interpret(value, widthBytes) {
+    const bits = widthBytes * 8;
+    const u = toUnsigned(value, bits);
+
+    const out = {
+        hex: formatHex(u, widthBytes),
+        unsigned: u,
+        signed: toSigned(u, bits),
+        binary: u.toString(2).padStart(bits, "0"),
+        bytes: splitBE(u, widthBytes),
+        bcd: bcdToDec(u),
+        type:
+            widthBytes === 1 ? "BYTE / SINT" : widthBytes === 2 ? "WORD / INT" : "DWORD / DINT / REAL",
+    };
+
+    if (widthBytes === 4) {
+        out.real = bitsToReal(u);
+        out.realExplain = explainReal(u);
+    }
+    return out;
+}
