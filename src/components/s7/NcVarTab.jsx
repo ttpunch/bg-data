@@ -3,7 +3,7 @@ import { Input } from "../ui/input";
 import { ErrorBox } from "./Shared";
 
 const AREA_LABELS = {
-    N: "NCK", C: "Channel", A: "Axis", T: "Tool", B: "Mode group", H: "Drive (MSD)", V: "Drive (FDD)",
+    N: "NCK", C: "Channel", A: "Axis", T: "Tool", B: "Mode group", H: "Drive (MSD)", V: "Drive (FDD)", M: "HMI",
 };
 
 const VarRow = ({ v }) => {
