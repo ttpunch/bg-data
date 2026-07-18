@@ -5,8 +5,8 @@ Anchor: "Multi-line: yes/no" occurs once per variable. Segment the ch.3 body
 into per-variable chunks at each marker, tracking the current Area/Block header.
 Emits src/lib/ncVariables.js and unparsed-report.txt. Nothing is guessed.
 """
-import re, json, sys, argparse
-from collections import Counter, OrderedDict
+import re, sys, argparse
+from collections import OrderedDict
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--txt", default="lis2.txt")
@@ -32,7 +32,7 @@ BODY = RAW[start:end]
 
 SEC   = re.compile(r"Area\s+([A-Z]{1,2}),\s+Block\s+([A-Z0-9]+)\s*:\s*(.+?)\s*$")
 END   = re.compile(r"Multi-line:\s*(yes|no)", re.I)
-SYS   = re.compile(r"(\$[A-Z][A-Za-z0-9_\[\].]+)")
+SYS   = re.compile(r"(\$[A-Z][A-Za-z0-9_]+(?:\[[^\]]*\])?)")
 NAME  = re.compile(r"^\s*([a-zA-Z][A-Za-z0-9_]{1,40})\b")
 # The manual's variable table has the NC variable name alone in the first
 # column, e.g. "accessLevel" or "anLanguageOnHmi   $AN_LANGUAGE_ON_HMI" - name,
@@ -127,7 +127,14 @@ while i < n:
         i = j
         markers += 1
         rec = parse_chunk(chunk, sec) if sec else None
-        if rec and rec["name"]:
+        # A sysvar with an unbalanced bracket count means the "[...]" index
+        # block was not captured cleanly (e.g. cut off by a page break or an
+        # unexpected character SYS didn't anticipate). Per policy, a field
+        # that can't be captured cleanly is reported as unparsed, never
+        # shipped truncated or silently nulled out.
+        if rec and rec["sysvar"] and rec["sysvar"].count("[") != rec["sysvar"].count("]"):
+            unparsed.append(" ".join(x.strip() for x in chunk)[:200])
+        elif rec and rec["name"]:
             records.append(rec)
         else:
             unparsed.append(" ".join(x.strip() for x in chunk)[:200])
@@ -238,6 +245,8 @@ gate(captured >= 2600, f"captured only {captured}/{markers} variables (need >=26
 gate(len(sections) >= 120, f"only {len(sections)} sections (need >=120)")
 gate(all(r["area"] and r["block"] and r["name"] for r in records), "empty required field")
 gate(all(r["sysvar"] is None or r["sysvar"].startswith("$") for r in records), "bad sysvar")
+gate(all(r["sysvar"] is None or r["sysvar"].count("[") == r["sysvar"].count("]")
+         for r in records), "unbalanced sysvar brackets (truncated $var index)")
 gate(len({r["id"] for r in records}) == captured, "duplicate id")
 # spot checks — known variables must resolve correctly
 idx = {r["name"]: r for r in records}
