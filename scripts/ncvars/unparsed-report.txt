@@ -1,0 +1,4 @@
+    3.11               Status data of the HMI  3.11.1 Area M, Block S : Internal status data HMI OEM-MMC: Linkitem                       /DriveState/...  Some internal status data of the HMI can be ac
+   /Nck/Nck/ActBag  Current operating mode for display in HMI  -                                                                                                  Character          rw  Multi-line: no
+    NC variables and interface signals List Manual, 05/2017, A5E40870419                                                                                         689  NC variables 3.12 User data    /Nc
+   /Nck/Nck/CoordSystem  Coordinate system for display in HMI  -                                                                                                 Character             rw  Multi-line: n

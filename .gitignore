@@ -24,3 +24,7 @@ yarn-error.log*
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# NC variables extractor build inputs (large manual text/PDF, not source)
+scripts/ncvars/lis2.pdf
+scripts/ncvars/lis2.txt
