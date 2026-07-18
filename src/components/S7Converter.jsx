@@ -8,6 +8,7 @@ import AddressTab from "./s7/AddressTab";
 import PointerTab from "./s7/PointerTab";
 import SignalTab from "./s7/SignalTab";
 import RealTimeTab from "./s7/RealTimeTab";
+import NcVarTab from "./s7/NcVarTab";
 
 const TABS = [
     { id: "number", label: "Number" },
@@ -15,6 +16,7 @@ const TABS = [
     { id: "pointer", label: "Pointer" },
     { id: "signal", label: "Signal" },
     { id: "realtime", label: "REAL / Time" },
+    { id: "ncvars", label: "NC Variables" },
 ];
 
 const S7Converter = () => {
@@ -85,6 +87,7 @@ const S7Converter = () => {
                     {tab === "pointer" && <PointerTab />}
                     {tab === "signal" && <SignalTab />}
                     {tab === "realtime" && <RealTimeTab />}
+                    {tab === "ncvars" && <NcVarTab />}
                 </CardContent>
             </Card>
         </div>
