@@ -15,7 +15,7 @@ new tab alongside the interface-signal lookup already shipped.
 
 The interface signals (chapter 5, 1,104 DB signals) are already in the app
 (`src/lib/s7Signals.js`). This project adds the **other half** of the same manual: the NC
-variables, organized by the manual's 256 Area/Block sections.
+variables, organized by the manual's ~128 Area/Block sections.
 
 ## 2. Scope
 
@@ -94,7 +94,7 @@ export function searchVars({ query, area, block });
 
 ### Parse anchors (from the manual's own structure)
 
-- **Section boundary:** `3.x.y  Area <A>, Block <B> : <label>` starts each of the 256 blocks.
+- **Section boundary:** `3.x.y  Area <A>, Block <B> : <label>` starts each block (~128 in the ch.3 body).
 - **Variable start:** a `shortName  $SYSTEM_VAR` header line, or `shortName  /LinkItem/`
   where there is no `$var`.
 - **Variable end:** the `Multi-line: yes/no` marker, which occurs exactly once per variable
@@ -104,7 +104,7 @@ export function searchVars({ query, area, block });
 
 | Problem | Fix |
 |---|---|
-| Section regex caught only 20/256 sections | Match the body's real header formatting; assert all 256 TOC blocks are found, fail loudly otherwise |
+| Section regex caught only a fraction of sections | Segment on the per-variable `Multi-line:` anchor and track the current `Area/Block` header; assert every block heading in the ch.3 body is represented, fail loudly otherwise |
 | Only 569/2,759 variables captured | Handle `$var` on the following line and `/LinkItem/`-only variables; anchor on the `Multi-line:` delimiter rather than a single-line header |
 | Same variable captured twice at page breaks | Strip running headers / footers / page numbers before parsing; dedup by `(area, block, name)` |
 | Enum lists and prose wrap across many lines | Join everything between header and `Multi-line:` into one whitespace-collapsed description |
@@ -114,7 +114,7 @@ export function searchVars({ query, area, block });
 1. **Count reconciliation** — captured count within a small tolerance of the 2,759
    `Multi-line:` markers; the shortfall is written to `unparsed-report.txt`, never dropped
    silently.
-2. **All 256 sections present** — cross-checked against the TOC block list.
+2. **All body sections present** (~128) — every `Area/Block` heading in the ch.3 body is represented in the output.
 3. **No empty required fields** — every entry has area, block, name; `sysvar` is null or a
    non-empty `$...` string.
 4. **Spot-checks** — a handful of known variables assert exact values (enforced in the unit
@@ -136,7 +136,7 @@ uncertain entry look verified.
 - **On first open:** `import("../../lib/ncVariables.js")` with a "Loading NC variables…"
   state; cached thereafter so re-opening is instant.
 - **Search box:** matches across name, `$SYSTEM_VAR`, and description, case-insensitive.
-- **Section filter:** a dropdown of the 256 sections, grouped by area (NCK / Channel / Axis
+- **Section filter:** a dropdown of the ~128 sections, grouped by area (NCK / Channel / Axis
   / Tool / Mode group / Drives), to browse a single block.
 - **Results:** each row shows `name` + `$SYSTEM_VAR` (mono) + a section badge + the
   description clamped to ~2 lines; clicking expands the full text with its enum list.
@@ -149,7 +149,7 @@ Reuses the existing `ErrorBox` / `Row` / tab-button patterns from `src/component
 
 ## 6. Testing
 
-- **Extractor** (`extract.py`): count reconciliation, all-256-sections check, and the
+- **Extractor** (`extract.py`): count reconciliation, all-sections check, and the
   unparsed report run at extract time; the script exits non-zero if any gate fails.
 - **`ncVariables.js`** (Vitest): dataset integrity (every entry has area/block/name; ids
   unique; `sysvar` null or `$`-prefixed), and `searchVars` behavior (finds by name, `$var`,
