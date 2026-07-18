@@ -17,9 +17,11 @@ const Hit = ({ hit }) => (
                         {hit.resolvedLabel}
                     </span>
                 )}
-                <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">
-                    {hit.dir}
-                </span>
+                {hit.dir && (
+                    <span className="text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">
+                        {hit.dir}
+                    </span>
+                )}
             </div>
         </div>
         <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/60">
@@ -86,7 +88,7 @@ const SignalTab = () => {
         mode === "address"
             ? addrErr
                 ? []
-                : lookupSignal({ control, db: addr.db, byte: addr.byte, bit: addr.bit ?? 0 })
+                : lookupSignal({ control, db: addr.db, byte: addr.byte, bit: addr.bit })
             : searchSignals({ control, query });
 
     const searched = mode === "search" && query.trim() !== "";
