@@ -75,6 +75,114 @@
   }
 }
 
+/* ==========================================================================
+   AI Agent — shop-floor instrument styling
+   The agent is framed as a dispatch terminal: the log reads like an
+   equipment journal and each parsed result is a work-order ticket awaiting
+   sign-off. Signal colours follow industrial convention (amber = attention
+   required, green = committed) so status is readable at a glance.
+   ========================================================================== */
+
+:root {
+  --signal-pending: 38 92% 50%;   /* amber — awaiting confirmation */
+  --signal-committed: 142 71% 45%; /* green — written to database */
+  --agent-rule: 214 32% 91%;
+}
+
+.dark {
+  --signal-pending: 38 92% 55%;
+  --signal-committed: 142 69% 58%;
+  --agent-rule: 217 33% 20%;
+}
+
+.font-mono-tech {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, monospace;
+  font-variant-numeric: slashed-zero tabular-nums;
+}
+
+/* Engineering graph paper behind the log. The grid lives on its own pseudo
+   element so the fade mask applies only to the paper, never to the messages
+   drawn on top of it. */
+.agent-log-grid {
+  position: relative;
+}
+
+.agent-log-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, hsl(var(--agent-rule) / 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--agent-rule) / 0.55) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+}
+
+.agent-log-grid > * {
+  position: relative;
+}
+
+/* Ticket edge: the vertical amber rule down the left of a pending work order. */
+.agent-ticket::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: hsl(var(--signal-pending));
+}
+
+.agent-ticket-committed::before {
+  background: hsl(var(--signal-committed));
+}
+
+@keyframes agent-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.agent-enter {
+  animation: agent-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes agent-beacon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.agent-beacon {
+  animation: agent-beacon 1.6s ease-in-out infinite;
+}
+
+/* Interpreting indicator: three bars sweeping like a instrument readout. */
+@keyframes agent-scan {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.45; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+
+.agent-scan-bar {
+  animation: agent-scan 1s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-enter,
+  .agent-beacon,
+  .agent-scan-bar {
+    animation: none;
+  }
+}
+
 /* React Day Picker v9 Styles */
 .rdp {
   --rdp-cell-size: 36px;
