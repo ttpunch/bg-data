@@ -11,6 +11,7 @@ import {
   canSave,
   agentReplyText,
   isRequiredFieldMissing,
+  UNSUPPORTED_TEXT,
 } from "../lib/agentClient";
 import { cn } from "../lib/utils";
 
@@ -29,7 +30,7 @@ const Bubble = ({ role, children }) => (
   </div>
 );
 
-const BreakdownCard = ({ fields, onChange, index }) => (
+const BreakdownCard = ({ fields, onChange, index, disabled }) => (
   <div className="grid gap-3">
     <div className="grid gap-1">
       <label htmlFor={`breakdown-mcdata-${index}`} className="text-sm font-medium">
@@ -39,6 +40,7 @@ const BreakdownCard = ({ fields, onChange, index }) => (
         id={`breakdown-mcdata-${index}`}
         value={fields.mcdata}
         onChange={(e) => onChange({ ...fields, mcdata: e.target.value })}
+        disabled={disabled}
         className={cn(
           isRequiredFieldMissing("breakdown", "mcdata", fields) && "border-destructive"
         )}
@@ -53,6 +55,7 @@ const BreakdownCard = ({ fields, onChange, index }) => (
         rows="3"
         value={fields.bgdetail}
         onChange={(e) => onChange({ ...fields, bgdetail: e.target.value })}
+        disabled={disabled}
         className={cn(
           isRequiredFieldMissing("breakdown", "bgdetail", fields) && "border-destructive"
         )}
@@ -67,12 +70,13 @@ const BreakdownCard = ({ fields, onChange, index }) => (
         type="date"
         value={fields.bgdate ?? ""}
         onChange={(e) => onChange({ ...fields, bgdate: e.target.value || null })}
+        disabled={disabled}
       />
     </div>
   </div>
 );
 
-const MachineDetailsCard = ({ fields, onChange, index }) => (
+const MachineDetailsCard = ({ fields, onChange, index, disabled }) => (
   <div className="grid gap-3">
     <div className="grid gap-1">
       <label htmlFor={`machine-no-${index}`} className="text-sm font-medium">
@@ -82,6 +86,7 @@ const MachineDetailsCard = ({ fields, onChange, index }) => (
         id={`machine-no-${index}`}
         value={fields.machine_no}
         onChange={(e) => onChange({ ...fields, machine_no: e.target.value })}
+        disabled={disabled}
         className={cn(
           isRequiredFieldMissing("machine_details", "machine_no", fields) && "border-destructive"
         )}
@@ -95,6 +100,7 @@ const MachineDetailsCard = ({ fields, onChange, index }) => (
         id={`machine-name-${index}`}
         value={fields.machine_name}
         onChange={(e) => onChange({ ...fields, machine_name: e.target.value })}
+        disabled={disabled}
       />
     </div>
     <div className="grid gap-1">
@@ -105,28 +111,31 @@ const MachineDetailsCard = ({ fields, onChange, index }) => (
         id={`machine-location-${index}`}
         value={fields.location}
         onChange={(e) => onChange({ ...fields, location: e.target.value })}
+        disabled={disabled}
       />
     </div>
-    {fields.specifications.length > 0 && (
+    {(fields.specifications ?? []).length > 0 && (
       <div className="grid gap-2">
         <span className="text-sm font-medium">Specifications</span>
-        {fields.specifications.map((spec, i) => (
+        {(fields.specifications ?? []).map((spec, i) => (
           <div key={i} className="flex gap-2">
             <Input
               value={spec.key}
               onChange={(e) => {
-                const next = [...fields.specifications];
+                const next = [...(fields.specifications ?? [])];
                 next[i] = { ...next[i], key: e.target.value };
                 onChange({ ...fields, specifications: next });
               }}
+              disabled={disabled}
             />
             <Input
               value={spec.value}
               onChange={(e) => {
-                const next = [...fields.specifications];
+                const next = [...(fields.specifications ?? [])];
                 next[i] = { ...next[i], value: e.target.value };
                 onChange({ ...fields, specifications: next });
               }}
+              disabled={disabled}
             />
           </div>
         ))}
@@ -170,8 +179,17 @@ const AIAgent = () => {
       const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/agent/interpret`, {
         message,
       });
-      const reply = agentReplyText(data);
-      append(reply ? { role: "agent", text: reply } : { role: "card", interpretation: data });
+      // Explicit allow-list rather than an implicit "else render a card":
+      // only these two intents carry fields worth reviewing. Everything
+      // else (clarify, unsupported, or anything unforeseen) renders as a
+      // reply bubble, so a future backend-only change can't make a
+      // fields-less response fall through into the card branch and crash.
+      const isCard = data?.intent === "breakdown" || data?.intent === "machine_details";
+      append(
+        isCard
+          ? { role: "card", interpretation: data }
+          : { role: "agent", text: agentReplyText(data) || UNSUPPORTED_TEXT }
+      );
     } catch (error) {
       console.error("Agent interpret failed:", error);
       toast.error("AI agent is unavailable — use the Record Data or Machine Details form instead.");
@@ -237,12 +255,14 @@ const AIAgent = () => {
                       fields={m.interpretation.fields}
                       onChange={(fields) => updateCard(i, fields)}
                       index={i}
+                      disabled={isSaving(i)}
                     />
                   ) : (
                     <MachineDetailsCard
                       fields={m.interpretation.fields}
                       onChange={(fields) => updateCard(i, fields)}
                       index={i}
+                      disabled={isSaving(i)}
                     />
                   )}
                   <div className="flex gap-2 justify-end">

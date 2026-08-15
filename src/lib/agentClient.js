@@ -1,6 +1,9 @@
 export const UNSUPPORTED_TEXT =
   "I can only record breakdown reports and machine details right now. Try describing a machine fault, or a machine's name, location, and specifications.";
 
+// Kept in sync by hand with the backend's own copy of this policy in
+// data-api/utils/agentInterpreter.js (also named REQUIRED there). The two
+// must agree, but there is nothing enforcing that automatically.
 const REQUIRED = {
   breakdown: ["mcdata", "bgdetail"],
   machine_details: ["machine_no"],
