@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Database, Edit, HardDrive, Search, Settings, Calculator, Brain } from "lucide-react"
+import { LayoutDashboard, Database, Edit, HardDrive, Search, Settings, Calculator, Brain, Bot } from "lucide-react"
 import { cn } from "../lib/utils"
 import { Button } from "./ui/button"
 
@@ -16,6 +16,7 @@ const Sidebar = () => {
     { name: "Keyword Search", path: "/search", icon: Search },
     { name: "Alarm Calculator", path: "/alarm-calc", icon: Calculator },
     { name: "Knowledge", path: "/knowledge", icon: Brain },
+    { name: "AI Agent", path: "/agent", icon: Bot },
   ];
 
   return (
