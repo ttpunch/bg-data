@@ -63,12 +63,24 @@ export const diffFields = (record, changes) => {
   return rows;
 };
 
-export const canConfirmProposal = (proposal) => {
+// Guards against a malformed backend response reaching JSX unvalidated. A
+// throw during render has no ErrorBoundary to catch it anywhere in this app,
+// so it would unmount the whole tree and blank the page — a bad `propose_*`
+// or `records` payload must be caught here, in a tested pure function,
+// rather than trusted implicitly by the component.
+export const isValidProposal = (proposal) => {
   if (!proposal || typeof proposal !== "object") return false;
-  if (!recordId(proposal.record)) return false;
+  if (proposal.kind !== "propose_update" && proposal.kind !== "propose_delete") return false;
+  return recordId(proposal.record) !== null;
+};
+
+export const isValidRecordsPayload = (payload) => {
+  if (!payload || typeof payload !== "object") return false;
+  return Array.isArray(payload.records);
+};
+
+export const canConfirmProposal = (proposal) => {
+  if (!isValidProposal(proposal)) return false;
   if (proposal.kind === "propose_delete") return true;
-  if (proposal.kind === "propose_update") {
-    return diffFields(proposal.record, proposal.changes).length > 0;
-  }
-  return false;
+  return diffFields(proposal.record, proposal.changes).length > 0;
 };

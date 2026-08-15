@@ -18,17 +18,27 @@ import {
   diffFields,
   formatRecordDate,
   canConfirmProposal,
+  isValidProposal,
+  isValidRecordsPayload,
 } from "../lib/agentActions";
 import { cn } from "../lib/utils";
 
 const MONO = "font-mono-tech";
 
 // Questions go to the tool-calling endpoint; statements of fact go to the
-// proven structured-output create path. Deliberately a cheap local heuristic:
-// misrouting is harmless because /act only ever proposes and /interpret only
-// ever produces a card the user must confirm.
+// proven structured-output create path. Deliberately a cheap local
+// heuristic — but the two misroute directions are NOT equally risky, so the
+// heuristic is deliberately biased toward /act:
+//   - A question misrouted to /act is harmless: non-actionable kinds just
+//     render a text bubble.
+//   - A lookup misrouted to /interpret is not harmless: the backend may
+//     classify it as a breakdown and hand back a normal-looking creation
+//     card with no signal that it came from a lookup question, which an
+//     inattentive user could confirm, fabricating a record.
+// Do not "balance" this list back down — err on the side of more words
+// routing to /act, since that side's failure mode is a no-op.
 const LOOKUP_HINTS =
-  /\b(what|which|when|show|list|history|find|search|any|how many|last|delete|remove|edit|change|update|correct|fix)\b/i;
+  /\b(what|which|when|show|list|history|find|search|any|how many|last|delete|remove|edit|change|update|correct|fix|problem|problems|issue|issues|fault|faults|breakdown|breakdowns|record|records|report|reports|about|tell|get|look|check|status|previous|past|recent|all)\b/i;
 
 const looksLikeLookup = (text) => LOOKUP_HINTS.test(text) || text.trim().endsWith("?");
 
@@ -266,7 +276,7 @@ const RecordsTable = ({ machineNo, records }) => (
   </div>
 );
 
-const ProposalCard = ({ proposal, index, saving, onConfirm, onDiscard }) => {
+const ProposalCard = ({ proposal, saving, onConfirm, onDiscard }) => {
   const destructive = proposal.kind === "propose_delete";
   const rows = destructive ? [] : diffFields(proposal.record, proposal.changes);
   const record = proposal.record;
@@ -393,15 +403,24 @@ const AIAgent = () => {
     setDraft("");
     setPending(true);
 
+    const endpoint = looksLikeLookup(message) ? "/api/agent/act" : "/api/agent/interpret";
+
     try {
-      const endpoint = looksLikeLookup(message) ? "/api/agent/act" : "/api/agent/interpret";
       const { data } = await axios.post(`${import.meta.env.VITE_API_URL}${endpoint}`, { message });
 
       if (endpoint === "/api/agent/act") {
         if (data?.kind === "records") {
-          append({ role: "records", machine_no: data.machine_no, records: data.records });
+          if (isValidRecordsPayload(data)) {
+            append({ role: "records", machine_no: data.machine_no, records: data.records });
+          } else {
+            append({ role: "status", text: "Malformed response — nothing was changed", tone: "discarded" });
+          }
         } else if (data?.kind === "propose_update" || data?.kind === "propose_delete") {
-          append({ role: "proposal", proposal: data });
+          if (isValidProposal(data)) {
+            append({ role: "proposal", proposal: data });
+          } else {
+            append({ role: "status", text: "Malformed response — nothing was changed", tone: "discarded" });
+          }
         } else {
           append({ role: "agent", text: data?.text || "I could not work that one out." });
         }
@@ -420,7 +439,11 @@ const AIAgent = () => {
       }
     } catch (error) {
       console.error("Agent interpret failed:", error);
-      toast.error("AI agent is unavailable — use the Record Data or Machine Details form instead.");
+      toast.error(
+        endpoint === "/api/agent/act"
+          ? "Lookup could not be completed — try again, or use the Breakdown Data page."
+          : "AI agent is unavailable — use the Record Data or Machine Details form instead."
+      );
     } finally {
       setPending(false);
     }
@@ -644,7 +667,6 @@ const AIAgent = () => {
                 <ProposalCard
                   key={i}
                   proposal={m.proposal}
-                  index={i}
                   saving={isSaving(i)}
                   onConfirm={() => handleProposal(i, m.proposal)}
                   onDiscard={() => resolveCard(i, "Cancelled — nothing changed", "discarded")}

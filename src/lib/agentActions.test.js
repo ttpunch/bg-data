@@ -5,6 +5,8 @@ import {
   diffFields,
   formatRecordDate,
   canConfirmProposal,
+  isValidProposal,
+  isValidRecordsPayload,
 } from "./agentActions";
 
 const RECORD = {
@@ -189,5 +191,66 @@ describe("canConfirmProposal", () => {
   it("blocks anything malformed", () => {
     expect(canConfirmProposal(null)).toBe(false);
     expect(canConfirmProposal({ kind: "records" })).toBe(false);
+  });
+});
+
+describe("isValidProposal", () => {
+  it("accepts a propose_update carrying a record with a usable id", () => {
+    expect(
+      isValidProposal({ kind: "propose_update", record: RECORD, changes: { breakdown: "x" } })
+    ).toBe(true);
+  });
+
+  it("accepts a propose_delete carrying a record with a usable id", () => {
+    expect(isValidProposal({ kind: "propose_delete", record: RECORD })).toBe(true);
+  });
+
+  it("rejects a proposal with a kind other than propose_update/propose_delete", () => {
+    expect(isValidProposal({ kind: "records", record: RECORD })).toBe(false);
+    expect(isValidProposal({ kind: "clarify", record: RECORD })).toBe(false);
+  });
+
+  it("rejects a proposal whose record is missing", () => {
+    expect(isValidProposal({ kind: "propose_delete", record: null })).toBe(false);
+    expect(isValidProposal({ kind: "propose_delete" })).toBe(false);
+  });
+
+  it("rejects a proposal whose record has no usable string _id", () => {
+    expect(isValidProposal({ kind: "propose_delete", record: {} })).toBe(false);
+    expect(isValidProposal({ kind: "propose_delete", record: { _id: "" } })).toBe(false);
+    expect(isValidProposal({ kind: "propose_delete", record: { _id: 123 } })).toBe(false);
+  });
+
+  it("rejects anything malformed at the top level", () => {
+    expect(isValidProposal(null)).toBe(false);
+    expect(isValidProposal(undefined)).toBe(false);
+    expect(isValidProposal("propose_delete")).toBe(false);
+  });
+});
+
+describe("isValidRecordsPayload", () => {
+  it("accepts a payload with an array of records", () => {
+    expect(isValidRecordsPayload({ kind: "records", machine_no: "251", records: [RECORD] })).toBe(
+      true
+    );
+  });
+
+  it("accepts an empty records array", () => {
+    expect(isValidRecordsPayload({ kind: "records", machine_no: "251", records: [] })).toBe(true);
+  });
+
+  it("rejects a payload with a missing records field", () => {
+    expect(isValidRecordsPayload({ kind: "records", machine_no: "251" })).toBe(false);
+  });
+
+  it("rejects a payload whose records field is not an array", () => {
+    expect(isValidRecordsPayload({ kind: "records", records: null })).toBe(false);
+    expect(isValidRecordsPayload({ kind: "records", records: "oops" })).toBe(false);
+    expect(isValidRecordsPayload({ kind: "records", records: {} })).toBe(false);
+  });
+
+  it("rejects anything malformed at the top level", () => {
+    expect(isValidRecordsPayload(null)).toBe(false);
+    expect(isValidRecordsPayload(undefined)).toBe(false);
   });
 });
