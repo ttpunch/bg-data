@@ -9,7 +9,9 @@ const REQUIRED = {
 const filled = (value) => typeof value === "string" && value.trim() !== "";
 
 export const buildSavePayload = (interpretation) => {
+  if (interpretation == null) return null;
   const { intent, fields } = interpretation;
+  if (!fields) return null;
 
   if (intent === "breakdown") {
     return {
@@ -38,12 +40,15 @@ export const buildSavePayload = (interpretation) => {
 };
 
 export const canSave = (interpretation) => {
+  if (interpretation == null) return false;
   const required = REQUIRED[interpretation.intent];
   if (!required) return false;
-  return required.every((name) => filled(interpretation.fields[name]));
+  const fields = interpretation.fields ?? {};
+  return required.every((name) => filled(fields[name]));
 };
 
 export const agentReplyText = (interpretation) => {
+  if (interpretation == null) return "";
   if (interpretation.intent === "clarify") return interpretation.clarifyQuestion;
   if (interpretation.intent === "unsupported") return UNSUPPORTED_TEXT;
   return "";

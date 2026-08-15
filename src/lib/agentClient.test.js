@@ -46,6 +46,35 @@ describe("buildSavePayload", () => {
     expect(buildSavePayload({ intent: "clarify", fields: {} })).toBe(null);
     expect(buildSavePayload({ intent: "unsupported", fields: {} })).toBe(null);
   });
+
+  it("builds a machine details payload with an empty specifications array when the key is absent", () => {
+    expect(
+      buildSavePayload({ intent: "machine_details", fields: { machine_no: "251" } })
+    ).toEqual({
+      path: "/api/machine-details",
+      payload: {
+        machine_no: "251",
+        machine_name: undefined,
+        location: undefined,
+        specifications: [],
+      },
+    });
+  });
+
+  it("does not throw and returns null when fields is null", () => {
+    expect(buildSavePayload({ intent: "breakdown", fields: null })).toBe(null);
+    expect(buildSavePayload({ intent: "machine_details", fields: null })).toBe(null);
+  });
+
+  it("does not throw and returns null when fields is missing entirely", () => {
+    expect(buildSavePayload({ intent: "breakdown" })).toBe(null);
+    expect(buildSavePayload({ intent: "machine_details" })).toBe(null);
+  });
+
+  it("does not throw and returns null when the interpretation itself is null or undefined", () => {
+    expect(buildSavePayload(null)).toBe(null);
+    expect(buildSavePayload(undefined)).toBe(null);
+  });
 });
 
 describe("canSave", () => {
@@ -76,6 +105,20 @@ describe("canSave", () => {
     expect(canSave({ intent: "clarify", fields: {} })).toBe(false);
     expect(canSave({ intent: "unsupported", fields: {} })).toBe(false);
   });
+
+  it("does not throw and returns false when fields is null", () => {
+    expect(canSave({ intent: "breakdown", fields: null })).toBe(false);
+    expect(canSave({ intent: "machine_details", fields: null })).toBe(false);
+  });
+
+  it("does not throw and returns false when fields is missing entirely", () => {
+    expect(canSave({ intent: "machine_details" })).toBe(false);
+  });
+
+  it("does not throw and returns false when the interpretation itself is null or undefined", () => {
+    expect(canSave(null)).toBe(false);
+    expect(canSave(undefined)).toBe(false);
+  });
 });
 
 describe("agentReplyText", () => {
@@ -92,5 +135,19 @@ describe("agentReplyText", () => {
   it("returns an empty string for intents that render a card instead", () => {
     expect(agentReplyText(breakdown)).toBe("");
     expect(agentReplyText(machineDetails)).toBe("");
+  });
+
+  it("does not throw and returns an empty string when fields is null", () => {
+    expect(agentReplyText({ intent: "breakdown", fields: null })).toBe("");
+    expect(agentReplyText({ intent: "machine_details", fields: null })).toBe("");
+  });
+
+  it("does not throw and returns an empty string when fields is missing entirely", () => {
+    expect(agentReplyText({ intent: "machine_details" })).toBe("");
+  });
+
+  it("does not throw and returns an empty string when the interpretation itself is null or undefined", () => {
+    expect(agentReplyText(null)).toBe("");
+    expect(agentReplyText(undefined)).toBe("");
   });
 });
