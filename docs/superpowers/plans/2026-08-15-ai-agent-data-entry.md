@@ -17,6 +17,12 @@
 - **No new HTTP client dependency in the backend.** Use Node's built-in global `fetch`.
 - **Secrets never committed.** `OLLAMA_API_KEY` goes in `data-api/.env` (already gitignored) and Render's env config.
 - **Confidence floor is `0.5`** — below that, a `breakdown`/`machine_details` guess is downgraded to `clarify` server-side.
+- **Model output is untrusted and NOT schema-guaranteed.** Verified live against Ollama Cloud on
+  2026-08-15: `minimax-m3` (the chosen model) wraps its JSON in a ` ```json ` markdown fence and
+  *inconsistently* nests the extracted values under a `data` key instead of the schema's `fields`
+  key — on the same prompt, one call used `fields`, two used `data`. `gpt-oss:120b` obeyed the
+  schema exactly on the same prompts. Ollama's `format` parameter is therefore a hint, not a
+  grammar, for some models. Parsing must tolerate both shapes; see Task 1 Step 7 and Task 2.
 - **Field naming:** the interpret endpoint returns *frontend form* names for breakdowns (`mcdata`, `bgdetail`, `bgdate`) because `FormRouter.js` does the rename to `machine_no`/`breakdown` on save. Machine-details names (`machine_no`, `machine_name`, `location`, `specifications`) are already identical on both sides.
 - **Existing test style:** pure-logic vitest tests (`src/lib/*.test.js`). There is no `@testing-library/react` or jsdom in either repo — do not add them. Testable logic must live in pure modules.
 
@@ -308,6 +314,69 @@ cd /Volumes/MACEXSTORAGE/data-api && git add utils/agentInterpreter.js utils/age
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
 
+- [ ] **Step 7: Tolerate the `data`-vs-`fields` drift (added after live model testing)**
+
+`minimax-m3` sometimes returns the extracted values under `data` rather than `fields`, and
+sometimes nests `clarifyQuestion` inside that object. Add these test cases to
+`utils/agentInterpreter.test.js`:
+
+```js
+  it("accepts values under a data key, as minimax-m3 sometimes returns", () => {
+    const out = normalizeInterpretation({
+      intent: "breakdown",
+      confidence: 0.9,
+      data: { mcdata: "251", bgdetail: "spindle motor failure", bgdate: "2026-08-15" },
+    });
+    expect(out.fields.mcdata).toBe("251");
+    expect(out.fields.bgdetail).toBe("spindle motor failure");
+  });
+
+  it("prefers fields over data when a model sends both", () => {
+    const out = normalizeInterpretation({
+      intent: "machine_details",
+      confidence: 0.9,
+      fields: { machine_no: "correct" },
+      data: { machine_no: "stale" },
+    });
+    expect(out.fields.machine_no).toBe("correct");
+  });
+
+  it("finds a clarify question nested inside data", () => {
+    const out = normalizeInterpretation({
+      intent: "clarify",
+      confidence: 0.85,
+      data: { clarifyQuestion: "Which machine is this about?" },
+    });
+    expect(out.clarifyQuestion).toBe("Which machine is this about?");
+  });
+```
+
+Run them, watch them fail, then make them pass by changing only these two things in
+`utils/agentInterpreter.js`:
+
+Add a helper above `normalizeInterpretation`:
+
+```js
+const container = (raw) => {
+  const source = [raw.fields, raw.data].find((c) => c && typeof c === "object");
+  return source || {};
+};
+```
+
+Then in `normalizeInterpretation`, replace the clarify branch's argument and the `fields`
+assignment so they read:
+
+```js
+  if (intent === "clarify") return clarify(raw.clarifyQuestion || container(raw).clarifyQuestion);
+```
+
+```js
+  const fields = pickFields(intent, container(raw));
+```
+
+Re-run the full file — 13 tests should pass. Commit with the same
+`git add utils/agentInterpreter.js utils/agentInterpreter.test.js` form.
+
 ---
 
 ### Task 2: Backend — Ollama Cloud client, controller, and route
@@ -335,8 +404,13 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "https://ollama.com/api/chat";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "gpt-oss:120b-cloud";
-const TIMEOUT_MS = 30000;
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "minimax-m3";
+const TIMEOUT_MS = 60000;
+
+// minimax-m3 wraps its JSON in a ```json fence despite the format schema.
+// Verified live 2026-08-15; gpt-oss:120b does not. Strip it before parsing.
+const stripFence = (text) =>
+  text.replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
 
 const systemPrompt = (today) => `You convert a maintenance engineer's sentence into structured data for a machine breakdown tracker. Today's date is ${today}.
 
@@ -346,7 +420,9 @@ Choose exactly one intent:
 - "clarify": the sentence could plausibly be either of the above, or a required field is unclear. Set clarifyQuestion to a single short question.
 - "unsupported": the sentence is not about machines at all.
 
-Set confidence between 0 and 1 for how sure you are of the intent. Never invent a machine number, date, or detail that the sentence does not support — leave it out instead.`;
+Set confidence between 0 and 1 for how sure you are of the intent. Never invent a machine number, date, or detail that the sentence does not support — leave it out instead.
+
+Put every extracted value under the "fields" key, and put clarifyQuestion at the top level. Reply with raw JSON only — no markdown code fence.`;
 
 const callOllama = async (message) => {
   const apiKey = process.env.OLLAMA_API_KEY;
@@ -380,7 +456,9 @@ const callOllama = async (message) => {
     }
 
     const body = await response.json();
-    return JSON.parse(body?.message?.content ?? "null");
+    const content = body?.message?.content;
+    if (typeof content !== "string") return null;
+    return JSON.parse(stripFence(content));
   } finally {
     clearTimeout(timeout);
   }
@@ -458,8 +536,12 @@ not appear as a change):
 
 ```
 OLLAMA_API_KEY=<your ollama cloud key>
-OLLAMA_MODEL=gpt-oss:120b-cloud
+OLLAMA_MODEL=minimax-m3
 ```
+
+Note: Ollama Cloud model names have no `-cloud` suffix (verified against
+`GET https://ollama.com/api/tags` on 2026-08-15). `gpt-oss:120b` is the known-good fallback if
+`minimax-m3` proves unreliable.
 
 - [ ] **Step 6: Verify the endpoint end-to-end against the real API**
 
