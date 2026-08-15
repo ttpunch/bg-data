@@ -41,6 +41,54 @@ describe("buildUpdateRequest", () => {
       payload: { bgdate: "2026-08-12" },
     });
   });
+
+  it("scopes the payload to only the fields that actually changed, omitting an unchanged field even though it is present in changes", () => {
+    // breakdown here equals RECORD.breakdown exactly (a stale re-proposal of the
+    // same value) while machine_no genuinely differs. Only machine_no may reach
+    // the server, or a concurrent edit to breakdown made by someone else would
+    // be silently overwritten by a value the user never saw or approved.
+    expect(
+      buildUpdateRequest(RECORD, { breakdown: RECORD.breakdown, machine_no: "999" })
+    ).toEqual({
+      path: "/api/editdata/aaaaaaaaaaaaaaaaaaaaaaaa",
+      payload: { machine_no: "999" },
+    });
+  });
+
+  it("includes every field in the payload when multiple fields genuinely change", () => {
+    expect(
+      buildUpdateRequest(RECORD, { breakdown: "gearbox seized", machine_no: "999" })
+    ).toEqual({
+      path: "/api/editdata/aaaaaaaaaaaaaaaaaaaaaaaa",
+      payload: { breakdown: "gearbox seized", machine_no: "999" },
+    });
+  });
+
+  it("returns null when every field in changes matches the stored record, even with multiple fields present", () => {
+    expect(
+      buildUpdateRequest(RECORD, { breakdown: RECORD.breakdown, machine_no: RECORD.machine_no })
+    ).toBeNull();
+  });
+
+  it("invariant: the payload's key set always equals the set of fields diffFields reports for the same input", () => {
+    const cases = [
+      { breakdown: "new text" },
+      {},
+      { breakdown: RECORD.breakdown, machine_no: "999" },
+      { breakdown: "gearbox seized", machine_no: "999" },
+      { breakdown: RECORD.breakdown, machine_no: RECORD.machine_no },
+      { bgdate: "2026-08-12T10:30:00.000Z", machine_no: "999" },
+      { bgdate: RECORD.bgdate, breakdown: RECORD.breakdown, machine_no: "1" },
+    ];
+    for (const changes of cases) {
+      const expectedKeys = diffFields(RECORD, changes)
+        .map((row) => row.field)
+        .sort();
+      const result = buildUpdateRequest(RECORD, changes);
+      const actualKeys = result ? Object.keys(result.payload).sort() : [];
+      expect(actualKeys).toEqual(expectedKeys);
+    }
+  });
 });
 
 describe("buildDeleteRequest", () => {

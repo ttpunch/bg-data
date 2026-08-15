@@ -29,13 +29,18 @@ const recordId = (record) => {
 
 export const buildUpdateRequest = (record, changes) => {
   const id = recordId(record);
-  const source = changes && typeof changes === "object" ? changes : {};
+  if (!id) return null;
+  // Scope the payload to exactly the fields diffFields would show the user a
+  // row for. This keeps the request in lockstep with what was displayed: a
+  // field present in `changes` but equal to the stored value never reaches
+  // the server, so it can't silently clobber a concurrent edit the user
+  // never saw or approved.
+  const rows = diffFields(record, changes);
+  if (rows.length === 0) return null;
   const payload = {};
-  for (const field of ["breakdown", "bgdate", "machine_no"]) {
-    if (typeof source[field] !== "string") continue;
-    payload[field] = field === "bgdate" ? formatRecordDate(source[field]) : source[field];
+  for (const row of rows) {
+    payload[row.field] = row.after;
   }
-  if (!id || Object.keys(payload).length === 0) return null;
   return { path: `${EDIT_BASE}/${id}`, payload };
 };
 
