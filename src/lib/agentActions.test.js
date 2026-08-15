@@ -7,6 +7,7 @@ import {
   canConfirmProposal,
   isValidProposal,
   isValidRecordsPayload,
+  looksLikeLookup,
 } from "./agentActions";
 
 const RECORD = {
@@ -252,5 +253,59 @@ describe("isValidRecordsPayload", () => {
   it("rejects anything malformed at the top level", () => {
     expect(isValidRecordsPayload(null)).toBe(false);
     expect(isValidRecordsPayload(undefined)).toBe(false);
+  });
+
+  it("rejects a records array containing a null element", () => {
+    expect(isValidRecordsPayload({ kind: "records", records: [null] })).toBe(false);
+  });
+
+  it("rejects a mixed array with one valid record and one null", () => {
+    expect(isValidRecordsPayload({ kind: "records", records: [RECORD, null] })).toBe(false);
+  });
+});
+
+describe("looksLikeLookup", () => {
+  it("routes real create statements to create, even though they use the domain's own vocabulary", () => {
+    const createStatements = [
+      "machine 251 had a breakdown today - spindle motor failure",
+      "record this breakdown for machine 251: motor overheating",
+      "machine 12 has a fault in the coolant pump",
+      "there was an issue with machine 44 hydraulic line",
+      "machine 8 tailstock had a problem this morning",
+      "log a breakdown on machine 3, gearbox seized",
+    ];
+    for (const text of createStatements) {
+      expect(looksLikeLookup(text)).toBe(false);
+    }
+  });
+
+  it("routes messages opening with a question word to lookup", () => {
+    expect(looksLikeLookup("what problems has 251 had")).toBe(true);
+    expect(looksLikeLookup("show me the history for 2-512")).toBe(true);
+  });
+
+  it("routes messages opening with an edit/delete verb to lookup", () => {
+    expect(looksLikeLookup("delete the spindle record for 251")).toBe(true);
+    expect(looksLikeLookup("change the date on that record")).toBe(true);
+  });
+
+  it("routes a message ending in a question mark to lookup", () => {
+    expect(looksLikeLookup("251 breakdowns?")).toBe(true);
+  });
+
+  it("allows ordinary leading filler before the keyword", () => {
+    expect(looksLikeLookup("please show me machine 251's history")).toBe(true);
+    expect(looksLikeLookup("can you delete that record")).toBe(true);
+    expect(looksLikeLookup("could you check on machine 44")).toBe(true);
+  });
+
+  it("does not throw on empty, whitespace, or non-string input", () => {
+    expect(looksLikeLookup("")).toBe(false);
+    expect(looksLikeLookup("   ")).toBe(false);
+    expect(looksLikeLookup(null)).toBe(false);
+    expect(looksLikeLookup(undefined)).toBe(false);
+    expect(looksLikeLookup(123)).toBe(false);
+    expect(looksLikeLookup({})).toBe(false);
+    expect(looksLikeLookup([])).toBe(false);
   });
 });

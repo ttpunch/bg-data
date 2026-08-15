@@ -20,27 +20,11 @@ import {
   canConfirmProposal,
   isValidProposal,
   isValidRecordsPayload,
+  looksLikeLookup,
 } from "../lib/agentActions";
 import { cn } from "../lib/utils";
 
 const MONO = "font-mono-tech";
-
-// Questions go to the tool-calling endpoint; statements of fact go to the
-// proven structured-output create path. Deliberately a cheap local
-// heuristic — but the two misroute directions are NOT equally risky, so the
-// heuristic is deliberately biased toward /act:
-//   - A question misrouted to /act is harmless: non-actionable kinds just
-//     render a text bubble.
-//   - A lookup misrouted to /interpret is not harmless: the backend may
-//     classify it as a breakdown and hand back a normal-looking creation
-//     card with no signal that it came from a lookup question, which an
-//     inattentive user could confirm, fabricating a record.
-// Do not "balance" this list back down — err on the side of more words
-// routing to /act, since that side's failure mode is a no-op.
-const LOOKUP_HINTS =
-  /\b(what|which|when|show|list|history|find|search|any|how many|last|delete|remove|edit|change|update|correct|fix|problem|problems|issue|issues|fault|faults|breakdown|breakdowns|record|records|report|reports|about|tell|get|look|check|status|previous|past|recent|all)\b/i;
-
-const looksLikeLookup = (text) => LOOKUP_HINTS.test(text) || text.trim().endsWith("?");
 
 const clockTime = () =>
   new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

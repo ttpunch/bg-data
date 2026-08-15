@@ -76,11 +76,47 @@ export const isValidProposal = (proposal) => {
 
 export const isValidRecordsPayload = (payload) => {
   if (!payload || typeof payload !== "object") return false;
-  return Array.isArray(payload.records);
+  if (!Array.isArray(payload.records)) return false;
+  // Every element must be a real record object, not just an array. A `null`
+  // slipping through here reaches RecordsTable's `records.map(r => r._id)`
+  // unvalidated, and with no ErrorBoundary anywhere in this app, that throw
+  // unmounts the whole tree — a blank page instead of a bad row.
+  return payload.records.every((r) => r !== null && typeof r === "object");
 };
 
 export const canConfirmProposal = (proposal) => {
   if (!isValidProposal(proposal)) return false;
   if (proposal.kind === "propose_delete") return true;
   return diffFields(proposal.record, proposal.changes).length > 0;
+};
+
+// Routes a typed message to the create path (/api/agent/interpret) or the
+// lookup/edit/delete path (/api/agent/act). The distinguishing signal is
+// interrogative structure, not vocabulary: a message that OPENS with a
+// question/command word, or an edit/delete verb, or ENDS with "?" is a
+// request; anything else is read as a statement of fact heading to create.
+//
+// This used to be a keyword-soup regex that included domain nouns like
+// "breakdown", "fault", "issue", "problem", "record" and "report" — which
+// are exactly the words people use to REPORT a breakdown ("machine 251 had
+// a breakdown today"). That misrouted real create statements to /act, which
+// has no create capability at all, so they silently produced nothing.
+//
+// The asymmetry that makes leading-position matching (rather than "err
+// toward lookup") the right call: a question misrouted to /act is harmless
+// — /act only proposes changes for user approval, so a false lookup just
+// renders a records/proposal card or a "could not work that out" bubble.
+// A create statement misrouted to /act is not harmless — it silently
+// produces no card and no explanation, because /act cannot create. So the
+// rule is structural (where in the sentence the keyword sits), not a list
+// that can be "balanced" by adding or removing nouns.
+const LOOKUP_LEAD =
+  /^(?:(?:please|can you|could you)\s+)*(what|which|when|where|who|how|why|show|list|find|search|tell|get|look|check|any|delete|remove|edit|change|update|correct|fix)\b/i;
+
+export const looksLikeLookup = (text) => {
+  if (typeof text !== "string") return false;
+  const trimmed = text.trim();
+  if (trimmed === "") return false;
+  if (trimmed.endsWith("?")) return true;
+  return LOOKUP_LEAD.test(trimmed);
 };
