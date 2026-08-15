@@ -140,6 +140,10 @@
   background: hsl(var(--signal-committed));
 }
 
+.agent-ticket-destructive::before {
+  background: hsl(var(--destructive));
+}
+
 @keyframes agent-enter {
   from {
     opacity: 0;

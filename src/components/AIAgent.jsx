@@ -12,9 +12,25 @@ import {
   isRequiredFieldMissing,
   UNSUPPORTED_TEXT,
 } from "../lib/agentClient";
+import {
+  buildUpdateRequest,
+  buildDeleteRequest,
+  diffFields,
+  formatRecordDate,
+  canConfirmProposal,
+} from "../lib/agentActions";
 import { cn } from "../lib/utils";
 
 const MONO = "font-mono-tech";
+
+// Questions go to the tool-calling endpoint; statements of fact go to the
+// proven structured-output create path. Deliberately a cheap local heuristic:
+// misrouting is harmless because /act only ever proposes and /interpret only
+// ever produces a card the user must confirm.
+const LOOKUP_HINTS =
+  /\b(what|which|when|show|list|history|find|search|any|how many|last|delete|remove|edit|change|update|correct|fix)\b/i;
+
+const looksLikeLookup = (text) => LOOKUP_HINTS.test(text) || text.trim().endsWith("?");
 
 const clockTime = () =>
   new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -226,6 +242,115 @@ const MachineDetailsCard = ({ fields, onChange, index, disabled }) => {
   );
 };
 
+const RecordsTable = ({ machineNo, records }) => (
+  <div className="agent-enter rounded-lg border bg-card overflow-hidden">
+    <div className="flex items-center gap-2 border-b bg-muted/30 px-3.5 py-2.5">
+      <span className={cn(MONO, "text-[10px] uppercase tracking-[0.14em] text-muted-foreground")}>
+        Machine
+      </span>
+      <span className={cn(MONO, "text-xs font-bold")}>{machineNo}</span>
+      <span className={cn(MONO, "ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground")}>
+        {records.length} record{records.length === 1 ? "" : "s"}
+      </span>
+    </div>
+    <div className="max-h-64 overflow-y-auto divide-y">
+      {records.map((r) => (
+        <div key={r._id} className="px-3.5 py-2.5">
+          <div className={cn(MONO, "text-[10px] text-muted-foreground")}>
+            {formatRecordDate(r.bgdate) || "no date"}
+          </div>
+          <div className="text-sm leading-relaxed whitespace-pre-wrap">{r.breakdown}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const ProposalCard = ({ proposal, index, saving, onConfirm, onDiscard }) => {
+  const destructive = proposal.kind === "propose_delete";
+  const rows = destructive ? [] : diffFields(proposal.record, proposal.changes);
+  const record = proposal.record;
+
+  return (
+    <article
+      className={cn(
+        "agent-enter agent-ticket relative overflow-hidden rounded-lg border bg-card pl-4",
+        destructive && "agent-ticket-destructive"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/30 px-3.5 py-2.5">
+        <span
+          className={cn(
+            MONO,
+            "flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em]",
+            destructive ? "text-destructive" : "text-[hsl(var(--signal-pending))]"
+          )}
+        >
+          <span
+            className={cn(
+              "agent-beacon h-1.5 w-1.5 rounded-full",
+              destructive ? "bg-destructive" : "bg-[hsl(var(--signal-pending))]"
+            )}
+          />
+          {destructive ? "Permanent delete" : "Confirm change"}
+        </span>
+        <span className={cn(MONO, "ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground")}>
+          Machine {record.machine_no}
+        </span>
+      </div>
+
+      <div className="p-3.5">
+        {destructive ? (
+          <div className="grid gap-2">
+            <p className="text-xs text-muted-foreground">
+              This record will be removed permanently. This cannot be undone.
+            </p>
+            <div className="rounded-md border border-destructive/40 bg-destructive/[0.05] p-3">
+              <div className={cn(MONO, "text-[10px] text-muted-foreground")}>
+                {formatRecordDate(record.bgdate) || "no date"}
+              </div>
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">{record.breakdown}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {rows.map((row) => (
+              <div key={row.field} className="grid gap-1">
+                <span className={cn(MONO, "text-[10px] uppercase tracking-[0.14em] text-muted-foreground")}>
+                  {row.label}
+                </span>
+                <span className="text-sm text-muted-foreground line-through decoration-destructive/60">
+                  {row.before || "(empty)"}
+                </span>
+                <span className="text-sm">{row.after}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-4 border-t border-dashed pt-3 flex items-center gap-2">
+          <span className={cn(MONO, "text-[10px] text-muted-foreground")}>
+            {canConfirmProposal(proposal) ? "Awaiting your approval" : "Nothing to apply"}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" size="sm" disabled={saving} onClick={onDiscard}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={destructive ? "destructive" : "default"}
+              disabled={!canConfirmProposal(proposal) || saving}
+              onClick={onConfirm}
+            >
+              {destructive ? "Delete record" : "Apply change"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+};
+
 const AIAgent = () => {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -269,20 +394,30 @@ const AIAgent = () => {
     setPending(true);
 
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_URL}/api/agent/interpret`, {
-        message,
-      });
-      // Explicit allow-list rather than an implicit "else render a card":
-      // only these two intents carry fields worth reviewing. Everything
-      // else (clarify, unsupported, or anything unforeseen) renders as a
-      // reply bubble, so a future backend-only change can't make a
-      // fields-less response fall through into the card branch and crash.
-      const isCard = data?.intent === "breakdown" || data?.intent === "machine_details";
-      append(
-        isCard
-          ? { role: "card", interpretation: data }
-          : { role: "agent", text: agentReplyText(data) || UNSUPPORTED_TEXT }
-      );
+      const endpoint = looksLikeLookup(message) ? "/api/agent/act" : "/api/agent/interpret";
+      const { data } = await axios.post(`${import.meta.env.VITE_API_URL}${endpoint}`, { message });
+
+      if (endpoint === "/api/agent/act") {
+        if (data?.kind === "records") {
+          append({ role: "records", machine_no: data.machine_no, records: data.records });
+        } else if (data?.kind === "propose_update" || data?.kind === "propose_delete") {
+          append({ role: "proposal", proposal: data });
+        } else {
+          append({ role: "agent", text: data?.text || "I could not work that one out." });
+        }
+      } else {
+        // Explicit allow-list rather than an implicit "else render a card":
+        // only these two intents carry fields worth reviewing. Everything
+        // else (clarify, unsupported, or anything unforeseen) renders as a
+        // reply bubble, so a future backend-only change can't make a
+        // fields-less response fall through into the card branch and crash.
+        const isCard = data?.intent === "breakdown" || data?.intent === "machine_details";
+        append(
+          isCard
+            ? { role: "card", interpretation: data }
+            : { role: "agent", text: agentReplyText(data) || UNSUPPORTED_TEXT }
+        );
+      }
     } catch (error) {
       console.error("Agent interpret failed:", error);
       toast.error("AI agent is unavailable — use the Record Data or Machine Details form instead.");
@@ -309,6 +444,47 @@ const AIAgent = () => {
       resolveCard(index, "Committed to database", "committed");
     } catch (error) {
       console.error("Agent save failed:", error);
+    } finally {
+      setSavingIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }
+  };
+
+  const handleProposal = async (index, proposal) => {
+    if (isSaving(index)) return;
+    setSavingIndices((prev) => new Set(prev).add(index));
+
+    try {
+      const destructive = proposal.kind === "propose_delete";
+      const request = destructive
+        ? buildDeleteRequest(proposal.record)
+        : buildUpdateRequest(proposal.record, proposal.changes);
+
+      if (!request) {
+        toast.error("Nothing to apply");
+        return;
+      }
+
+      const url = `${import.meta.env.VITE_API_URL}${request.path}`;
+      const promise = destructive ? axios.delete(url) : axios.put(url, request.payload);
+
+      toast.promise(promise, {
+        loading: destructive ? "Deleting..." : "Applying...",
+        success: destructive ? "Record deleted" : "Record updated",
+        error: destructive ? "Failed to delete" : "Failed to update",
+      });
+
+      await promise;
+      resolveCard(
+        index,
+        destructive ? "Record deleted permanently" : "Record updated",
+        "committed"
+      );
+    } catch (error) {
+      console.error("Agent action failed:", error);
     } finally {
       setSavingIndices((prev) => {
         const next = new Set(prev);
@@ -457,6 +633,23 @@ const AIAgent = () => {
 
             if (m.role === "status") {
               return <StatusLine key={i} text={m.text} tone={m.tone} at={m.at} />;
+            }
+
+            if (m.role === "records") {
+              return <RecordsTable key={i} machineNo={m.machine_no} records={m.records} />;
+            }
+
+            if (m.role === "proposal") {
+              return (
+                <ProposalCard
+                  key={i}
+                  proposal={m.proposal}
+                  index={i}
+                  saving={isSaving(i)}
+                  onConfirm={() => handleProposal(i, m.proposal)}
+                  onDiscard={() => resolveCard(i, "Cancelled — nothing changed", "discarded")}
+                />
+              );
             }
 
             return (
