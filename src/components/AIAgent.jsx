@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Bot, Send, User } from "lucide-react";
+import { Check, CircleSlash, CornerDownLeft, Cpu, Terminal } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import {
   buildSavePayload,
   canSave,
@@ -15,41 +14,110 @@ import {
 } from "../lib/agentClient";
 import { cn } from "../lib/utils";
 
-const Bubble = ({ role, children }) => (
-  <div className={cn("flex gap-2", role === "user" ? "justify-end" : "justify-start")}>
-    {role === "agent" && <Bot className="h-5 w-5 mt-2 shrink-0 text-muted-foreground" />}
-    <div
-      className={cn(
-        "rounded-lg px-3 py-2 max-w-[80%] text-sm",
-        role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
-      )}
-    >
-      {children}
-    </div>
-    {role === "user" && <User className="h-5 w-5 mt-2 shrink-0 text-muted-foreground" />}
-  </div>
+const MONO = "font-mono-tech";
+
+const clockTime = () =>
+  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+const EXAMPLES = [
+  "machine 251 had a spindle motor failure today",
+  "2-512 tailstock hydraulic pressure dropped yesterday",
+  "machine 2-900 is a Skoda borer in bay 4, spindle speed 3000 RPM",
+];
+
+/** Small uppercase mono caption used for every field label on a ticket. */
+const FieldLabel = ({ htmlFor, children, required }) => (
+  <label
+    htmlFor={htmlFor}
+    className={cn(MONO, "text-[10px] uppercase tracking-[0.14em] text-muted-foreground")}
+  >
+    {children}
+    {required && <span className="text-destructive"> *</span>}
+  </label>
 );
 
+const Bubble = ({ role, at, children }) => {
+  const isUser = role === "user";
+  return (
+    <div className={cn("agent-enter flex", isUser ? "justify-end" : "justify-start")}>
+      <div className={cn("max-w-[85%] space-y-1", isUser && "items-end")}>
+        <div
+          className={cn(
+            MONO,
+            "text-[10px] uppercase tracking-[0.14em] text-muted-foreground",
+            isUser && "text-right"
+          )}
+        >
+          {isUser ? "You" : "Agent"} · {at}
+        </div>
+        <div
+          className={cn(
+            "px-3.5 py-2.5 text-sm leading-relaxed",
+            isUser
+              ? "bg-foreground text-background rounded-lg rounded-br-sm"
+              : "bg-muted/70 border border-border/60 rounded-lg rounded-bl-sm"
+          )}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** Terminal-style status line replacing a resolved ticket. */
+const StatusLine = ({ text, tone, at }) => {
+  const committed = tone === "committed";
+  return (
+    <div
+      className={cn(
+        "agent-enter flex items-center gap-2.5 border px-3 py-2.5 rounded-lg",
+        committed
+          ? "border-[hsl(var(--signal-committed))]/40 bg-[hsl(var(--signal-committed))]/[0.07]"
+          : "border-border bg-muted/40"
+      )}
+    >
+      {committed ? (
+        <Check className="h-3.5 w-3.5 shrink-0 text-[hsl(var(--signal-committed))]" />
+      ) : (
+        <CircleSlash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      )}
+      <span
+        className={cn(
+          MONO,
+          "text-[11px] uppercase tracking-[0.12em]",
+          committed ? "text-[hsl(var(--signal-committed))]" : "text-muted-foreground"
+        )}
+      >
+        {text}
+      </span>
+      <span className={cn(MONO, "ml-auto text-[10px] text-muted-foreground")}>{at}</span>
+    </div>
+  );
+};
+
 const BreakdownCard = ({ fields, onChange, index, disabled }) => (
-  <div className="grid gap-3">
-    <div className="grid gap-1">
-      <label htmlFor={`breakdown-mcdata-${index}`} className="text-sm font-medium">
+  <div className="grid gap-3.5">
+    <div className="grid gap-1.5">
+      <FieldLabel htmlFor={`breakdown-mcdata-${index}`} required>
         Machine No
-      </label>
+      </FieldLabel>
       <Input
         id={`breakdown-mcdata-${index}`}
         value={fields.mcdata}
         onChange={(e) => onChange({ ...fields, mcdata: e.target.value })}
         disabled={disabled}
         className={cn(
+          MONO,
+          "font-medium",
           isRequiredFieldMissing("breakdown", "mcdata", fields) && "border-destructive"
         )}
       />
     </div>
-    <div className="grid gap-1">
-      <label htmlFor={`breakdown-bgdetail-${index}`} className="text-sm font-medium">
-        Breakdown Detail
-      </label>
+    <div className="grid gap-1.5">
+      <FieldLabel htmlFor={`breakdown-bgdetail-${index}`} required>
+        Fault Detail
+      </FieldLabel>
       <Textarea
         id={`breakdown-bgdetail-${index}`}
         rows="3"
@@ -57,102 +125,122 @@ const BreakdownCard = ({ fields, onChange, index, disabled }) => (
         onChange={(e) => onChange({ ...fields, bgdetail: e.target.value })}
         disabled={disabled}
         className={cn(
+          "leading-relaxed resize-none",
           isRequiredFieldMissing("breakdown", "bgdetail", fields) && "border-destructive"
         )}
       />
     </div>
-    <div className="grid gap-1">
-      <label htmlFor={`breakdown-bgdate-${index}`} className="text-sm font-medium">
-        Breakdown Date
-      </label>
+    <div className="grid gap-1.5">
+      <FieldLabel htmlFor={`breakdown-bgdate-${index}`}>Date of Breakdown</FieldLabel>
       <Input
         id={`breakdown-bgdate-${index}`}
         type="date"
         value={fields.bgdate ?? ""}
         onChange={(e) => onChange({ ...fields, bgdate: e.target.value || null })}
         disabled={disabled}
+        className={cn(MONO, "w-fit")}
       />
     </div>
   </div>
 );
 
-const MachineDetailsCard = ({ fields, onChange, index, disabled }) => (
-  <div className="grid gap-3">
-    <div className="grid gap-1">
-      <label htmlFor={`machine-no-${index}`} className="text-sm font-medium">
-        Machine No
-      </label>
-      <Input
-        id={`machine-no-${index}`}
-        value={fields.machine_no}
-        onChange={(e) => onChange({ ...fields, machine_no: e.target.value })}
-        disabled={disabled}
-        className={cn(
-          isRequiredFieldMissing("machine_details", "machine_no", fields) && "border-destructive"
-        )}
-      />
-    </div>
-    <div className="grid gap-1">
-      <label htmlFor={`machine-name-${index}`} className="text-sm font-medium">
-        Machine Name
-      </label>
-      <Input
-        id={`machine-name-${index}`}
-        value={fields.machine_name}
-        onChange={(e) => onChange({ ...fields, machine_name: e.target.value })}
-        disabled={disabled}
-      />
-    </div>
-    <div className="grid gap-1">
-      <label htmlFor={`machine-location-${index}`} className="text-sm font-medium">
-        Location
-      </label>
-      <Input
-        id={`machine-location-${index}`}
-        value={fields.location}
-        onChange={(e) => onChange({ ...fields, location: e.target.value })}
-        disabled={disabled}
-      />
-    </div>
-    {(fields.specifications ?? []).length > 0 && (
-      <div className="grid gap-2">
-        <span className="text-sm font-medium">Specifications</span>
-        {(fields.specifications ?? []).map((spec, i) => (
-          <div key={i} className="flex gap-2">
-            <Input
-              value={spec.key}
-              onChange={(e) => {
-                const next = [...(fields.specifications ?? [])];
-                next[i] = { ...next[i], key: e.target.value };
-                onChange({ ...fields, specifications: next });
-              }}
-              disabled={disabled}
-            />
-            <Input
-              value={spec.value}
-              onChange={(e) => {
-                const next = [...(fields.specifications ?? [])];
-                next[i] = { ...next[i], value: e.target.value };
-                onChange({ ...fields, specifications: next });
-              }}
-              disabled={disabled}
-            />
-          </div>
-        ))}
+const MachineDetailsCard = ({ fields, onChange, index, disabled }) => {
+  const specs = fields.specifications ?? [];
+  return (
+    <div className="grid gap-3.5">
+      <div className="grid gap-3.5 sm:grid-cols-2">
+        <div className="grid gap-1.5">
+          <FieldLabel htmlFor={`machine-no-${index}`} required>
+            Machine No
+          </FieldLabel>
+          <Input
+            id={`machine-no-${index}`}
+            value={fields.machine_no}
+            onChange={(e) => onChange({ ...fields, machine_no: e.target.value })}
+            disabled={disabled}
+            className={cn(
+              MONO,
+              "font-medium",
+              isRequiredFieldMissing("machine_details", "machine_no", fields) &&
+                "border-destructive"
+            )}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <FieldLabel htmlFor={`machine-location-${index}`}>Location</FieldLabel>
+          <Input
+            id={`machine-location-${index}`}
+            value={fields.location}
+            onChange={(e) => onChange({ ...fields, location: e.target.value })}
+            disabled={disabled}
+          />
+        </div>
       </div>
-    )}
-  </div>
-);
+      <div className="grid gap-1.5">
+        <FieldLabel htmlFor={`machine-name-${index}`}>Machine Name</FieldLabel>
+        <Input
+          id={`machine-name-${index}`}
+          value={fields.machine_name}
+          onChange={(e) => onChange({ ...fields, machine_name: e.target.value })}
+          disabled={disabled}
+        />
+      </div>
+      {specs.length > 0 && (
+        <div className="grid gap-2">
+          <div className="flex items-center gap-2">
+            <FieldLabel>Specifications</FieldLabel>
+            <span className={cn(MONO, "text-[10px] text-muted-foreground")}>
+              {specs.length}
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          {specs.map((spec, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                aria-label={`Specification ${i + 1} name`}
+                value={spec.key}
+                onChange={(e) => {
+                  const next = [...specs];
+                  next[i] = { ...next[i], key: e.target.value };
+                  onChange({ ...fields, specifications: next });
+                }}
+                disabled={disabled}
+                className="flex-1"
+              />
+              <Input
+                aria-label={`Specification ${i + 1} value`}
+                value={spec.value}
+                onChange={(e) => {
+                  const next = [...specs];
+                  next[i] = { ...next[i], value: e.target.value };
+                  onChange({ ...fields, specifications: next });
+                }}
+                disabled={disabled}
+                className={cn(MONO, "flex-1")}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AIAgent = () => {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [savingIndices, setSavingIndices] = useState(() => new Set());
+  const logEndRef = useRef(null);
+  const inputRef = useRef(null);
 
   const isSaving = (index) => savingIndices.has(index);
 
-  const append = (entry) => setMessages((prev) => [...prev, entry]);
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, pending]);
+
+  const append = (entry) => setMessages((prev) => [...prev, { at: clockTime(), ...entry }]);
 
   const updateCard = (index, fields) =>
     setMessages((prev) =>
@@ -161,10 +249,15 @@ const AIAgent = () => {
       )
     );
 
-  const resolveCard = (index, savedText) =>
+  const resolveCard = (index, text, tone) =>
     setMessages((prev) =>
-      prev.map((m, i) => (i === index ? { role: "agent", text: savedText } : m))
+      prev.map((m, i) => (i === index ? { role: "status", text, tone, at: clockTime() } : m))
     );
+
+  const useExample = (text) => {
+    setDraft(text);
+    inputRef.current?.focus();
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -202,18 +295,18 @@ const AIAgent = () => {
     if (isSaving(index)) return;
     setSavingIndices((prev) => new Set(prev).add(index));
 
-    const { path, payload } = buildSavePayload(interpretation);
-    const promise = axios.post(`${import.meta.env.VITE_API_URL}${path}`, payload);
-
-    toast.promise(promise, {
-      loading: "Saving...",
-      success: "Saved to database",
-      error: "Failed to save",
-    });
-
     try {
+      const { path, payload } = buildSavePayload(interpretation);
+      const promise = axios.post(`${import.meta.env.VITE_API_URL}${path}`, payload);
+
+      toast.promise(promise, {
+        loading: "Saving...",
+        success: "Saved to database",
+        error: "Failed to save",
+      });
+
       await promise;
-      resolveCard(index, "Saved to the database.");
+      resolveCard(index, "Committed to database", "committed");
     } catch (error) {
       console.error("Agent save failed:", error);
     } finally {
@@ -226,83 +319,197 @@ const AIAgent = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl">AI Agent</CardTitle>
-          <CardDescription>
-            Describe a breakdown or a machine in plain language. You confirm the details before
-            anything is saved.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-3 min-h-[16rem]">
-            {messages.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                For example: "machine 251 had a spindle motor failure today"
-              </p>
-            )}
-            {messages.map((m, i) =>
-              m.role === "card" ? (
-                <div key={i} className="border rounded-lg p-4 grid gap-4">
-                  <span className="text-sm font-medium">
-                    {m.interpretation.intent === "breakdown"
-                      ? "Breakdown report"
-                      : "Machine details"}
-                  </span>
-                  {m.interpretation.intent === "breakdown" ? (
-                    <BreakdownCard
-                      fields={m.interpretation.fields}
-                      onChange={(fields) => updateCard(i, fields)}
-                      index={i}
-                      disabled={isSaving(i)}
-                    />
-                  ) : (
-                    <MachineDetailsCard
-                      fields={m.interpretation.fields}
-                      onChange={(fields) => updateCard(i, fields)}
-                      index={i}
-                      disabled={isSaving(i)}
-                    />
-                  )}
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="ghost"
-                      disabled={isSaving(i)}
-                      onClick={() => resolveCard(i, "Discarded — nothing was saved.")}
-                    >
-                      Discard
-                    </Button>
-                    <Button
-                      disabled={!canSave(m.interpretation) || isSaving(i)}
-                      onClick={() => handleSave(i, m.interpretation)}
-                    >
-                      Confirm &amp; Save
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Bubble key={i} role={m.role}>
-                  {m.text}
-                </Bubble>
-              )
-            )}
-            {pending && <Bubble role="agent">Thinking...</Bubble>}
+    <div className="mx-auto max-w-3xl">
+      {/* Terminal chrome */}
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <header className="flex items-center gap-3 border-b bg-muted/40 px-4 py-3">
+          <Terminal className="h-4 w-4 text-muted-foreground" />
+          <div className="min-w-0">
+            <h1 className={cn(MONO, "text-sm font-bold tracking-[0.14em] uppercase")}>
+              Agent Intake
+            </h1>
+            <p className="text-xs text-muted-foreground truncate">
+              Describe a fault or a machine in plain language — you approve every record
+              before it is written.
+            </p>
           </div>
+          <span
+            className={cn(
+              MONO,
+              "ml-auto hidden sm:flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+            )}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--signal-committed))]" />
+            Online
+          </span>
+        </header>
 
-          <form onSubmit={handleSend} className="flex gap-2">
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Describe what happened..."
-              disabled={pending}
-            />
-            <Button type="submit" disabled={pending || !draft.trim()} aria-label="Send message">
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+        {/* Log */}
+        <div className="agent-log-grid max-h-[26rem] min-h-[19rem] space-y-3 overflow-y-auto p-4">
+          {messages.length === 0 && (
+            <div className="flex h-full flex-col justify-center gap-4 py-6">
+              <div className="flex items-start gap-3">
+                <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Type what happened the way you would say it. The agent extracts the
+                  machine number, the detail and the date, then hands them back for your
+                  approval.
+                </p>
+              </div>
+              <div className="grid gap-1.5 pl-7">
+                <span
+                  className={cn(
+                    MONO,
+                    "text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+                  )}
+                >
+                  Try one
+                </span>
+                {EXAMPLES.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => useExample(ex)}
+                    className="group flex items-start gap-2 rounded-md border border-dashed border-border px-2.5 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/60 hover:text-foreground"
+                  >
+                    <CornerDownLeft className="mt-0.5 h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+                    <span className="leading-relaxed">{ex}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((m, i) => {
+            if (m.role === "card") {
+              const breakdown = m.interpretation.intent === "breakdown";
+              const saving = isSaving(i);
+              return (
+                <article
+                  key={i}
+                  className="agent-enter agent-ticket relative overflow-hidden rounded-lg border bg-card pl-4"
+                >
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/30 px-3.5 py-2.5">
+                    <span
+                      className={cn(
+                        MONO,
+                        "flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[hsl(var(--signal-pending))]"
+                      )}
+                    >
+                      <span className="agent-beacon h-1.5 w-1.5 rounded-full bg-[hsl(var(--signal-pending))]" />
+                      {saving ? "Writing…" : "Awaiting confirmation"}
+                    </span>
+                    <span
+                      className={cn(
+                        MONO,
+                        "ml-auto text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+                      )}
+                    >
+                      {breakdown ? "Breakdown Report" : "Machine Record"}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5">
+                    {breakdown ? (
+                      <BreakdownCard
+                        fields={m.interpretation.fields}
+                        onChange={(fields) => updateCard(i, fields)}
+                        index={i}
+                        disabled={saving}
+                      />
+                    ) : (
+                      <MachineDetailsCard
+                        fields={m.interpretation.fields}
+                        onChange={(fields) => updateCard(i, fields)}
+                        index={i}
+                        disabled={saving}
+                      />
+                    )}
+
+                    <div className="mt-4 border-t border-dashed pt-3 flex items-center gap-2">
+                      <span className={cn(MONO, "text-[10px] text-muted-foreground")}>
+                        {canSave(m.interpretation)
+                          ? "Ready to write"
+                          : "Fill the starred fields"}
+                      </span>
+                      <div className="ml-auto flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={saving}
+                          onClick={() => resolveCard(i, "Discarded — nothing saved", "discarded")}
+                        >
+                          Discard
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={!canSave(m.interpretation) || saving}
+                          onClick={() => handleSave(i, m.interpretation)}
+                        >
+                          Confirm &amp; Save
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            }
+
+            if (m.role === "status") {
+              return <StatusLine key={i} text={m.text} tone={m.tone} at={m.at} />;
+            }
+
+            return (
+              <Bubble key={i} role={m.role} at={m.at}>
+                {m.text}
+              </Bubble>
+            );
+          })}
+
+          {pending && (
+            <div className="agent-enter flex items-center gap-2.5 text-muted-foreground">
+              <span className="flex h-4 items-end gap-[3px]" aria-hidden="true">
+                {[0, 1, 2].map((n) => (
+                  <span
+                    key={n}
+                    className="agent-scan-bar block h-3.5 w-[3px] rounded-sm bg-current"
+                    style={{ animationDelay: `${n * 0.15}s` }}
+                  />
+                ))}
+              </span>
+              <span className={cn(MONO, "text-[11px] uppercase tracking-[0.14em]")}>
+                Interpreting
+              </span>
+            </div>
+          )}
+          <div ref={logEndRef} />
+        </div>
+
+        {/* Composer */}
+        <form onSubmit={handleSend} className="flex items-center gap-2 border-t bg-muted/20 p-3">
+          <span className={cn(MONO, "pl-1 text-sm text-muted-foreground")} aria-hidden="true">
+            &gt;
+          </span>
+          <Input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Describe what happened…"
+            disabled={pending}
+            className="border-0 bg-transparent shadow-none focus-visible:ring-0 px-0"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={pending || !draft.trim()}
+            aria-label="Send message"
+            className="gap-1.5"
+          >
+            Send
+            <CornerDownLeft className="h-3.5 w-3.5" />
+          </Button>
+        </form>
+      </div>
     </div>
   );
 };
