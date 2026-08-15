@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { buildSavePayload, canSave, agentReplyText, UNSUPPORTED_TEXT } from "./agentClient";
+import {
+  buildSavePayload,
+  canSave,
+  agentReplyText,
+  isRequiredFieldMissing,
+  UNSUPPORTED_TEXT,
+} from "./agentClient";
 
 const breakdown = {
   intent: "breakdown",
@@ -149,5 +155,67 @@ describe("agentReplyText", () => {
   it("does not throw and returns an empty string when the interpretation itself is null or undefined", () => {
     expect(agentReplyText(null)).toBe("");
     expect(agentReplyText(undefined)).toBe("");
+  });
+});
+
+describe("isRequiredFieldMissing", () => {
+  it("flags a blank required breakdown field as missing", () => {
+    expect(isRequiredFieldMissing("breakdown", "mcdata", { ...breakdown.fields, mcdata: "" })).toBe(
+      true
+    );
+    expect(
+      isRequiredFieldMissing("breakdown", "bgdetail", { ...breakdown.fields, bgdetail: "  " })
+    ).toBe(true);
+  });
+
+  it("does not flag a filled required breakdown field", () => {
+    expect(isRequiredFieldMissing("breakdown", "mcdata", breakdown.fields)).toBe(false);
+    expect(isRequiredFieldMissing("breakdown", "bgdetail", breakdown.fields)).toBe(false);
+  });
+
+  it("never flags bgdate, since it is not a required breakdown field", () => {
+    expect(isRequiredFieldMissing("breakdown", "bgdate", { ...breakdown.fields, bgdate: null })).toBe(
+      false
+    );
+  });
+
+  it("flags a blank required machine_details field as missing", () => {
+    expect(
+      isRequiredFieldMissing("machine_details", "machine_no", {
+        ...machineDetails.fields,
+        machine_no: "",
+      })
+    ).toBe(true);
+  });
+
+  it("does not flag a filled required machine_details field", () => {
+    expect(isRequiredFieldMissing("machine_details", "machine_no", machineDetails.fields)).toBe(
+      false
+    );
+  });
+
+  it("never flags machine_name or location, since they are not required", () => {
+    expect(
+      isRequiredFieldMissing("machine_details", "machine_name", {
+        ...machineDetails.fields,
+        machine_name: "",
+      })
+    ).toBe(false);
+    expect(
+      isRequiredFieldMissing("machine_details", "location", {
+        ...machineDetails.fields,
+        location: "",
+      })
+    ).toBe(false);
+  });
+
+  it("returns false for intents with no required-field policy, like clarify or unsupported", () => {
+    expect(isRequiredFieldMissing("clarify", "mcdata", {})).toBe(false);
+    expect(isRequiredFieldMissing("unsupported", "machine_no", {})).toBe(false);
+  });
+
+  it("does not throw and treats the field as missing when fields is null or undefined", () => {
+    expect(isRequiredFieldMissing("breakdown", "mcdata", null)).toBe(true);
+    expect(isRequiredFieldMissing("breakdown", "mcdata", undefined)).toBe(true);
   });
 });

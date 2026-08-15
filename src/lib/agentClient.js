@@ -47,6 +47,13 @@ export const canSave = (interpretation) => {
   return required.every((name) => filled(fields[name]));
 };
 
+export const isRequiredFieldMissing = (intent, fieldName, fields) => {
+  const required = REQUIRED[intent];
+  if (!required || !required.includes(fieldName)) return false;
+  const value = (fields ?? {})[fieldName];
+  return !filled(value);
+};
+
 export const agentReplyText = (interpretation) => {
   if (interpretation == null) return "";
   if (interpretation.intent === "clarify") return interpretation.clarifyQuestion;

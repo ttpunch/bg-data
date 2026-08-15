@@ -6,7 +6,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { buildSavePayload, canSave, agentReplyText } from "../lib/agentClient";
+import {
+  buildSavePayload,
+  canSave,
+  agentReplyText,
+  isRequiredFieldMissing,
+} from "../lib/agentClient";
 import { cn } from "../lib/utils";
 
 const Bubble = ({ role, children }) => (
@@ -24,28 +29,41 @@ const Bubble = ({ role, children }) => (
   </div>
 );
 
-const BreakdownCard = ({ fields, onChange }) => (
+const BreakdownCard = ({ fields, onChange, index }) => (
   <div className="grid gap-3">
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Machine No</label>
+      <label htmlFor={`breakdown-mcdata-${index}`} className="text-sm font-medium">
+        Machine No
+      </label>
       <Input
+        id={`breakdown-mcdata-${index}`}
         value={fields.mcdata}
         onChange={(e) => onChange({ ...fields, mcdata: e.target.value })}
-        className={cn(!fields.mcdata.trim() && "border-destructive")}
+        className={cn(
+          isRequiredFieldMissing("breakdown", "mcdata", fields) && "border-destructive"
+        )}
       />
     </div>
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Breakdown Detail</label>
+      <label htmlFor={`breakdown-bgdetail-${index}`} className="text-sm font-medium">
+        Breakdown Detail
+      </label>
       <Textarea
+        id={`breakdown-bgdetail-${index}`}
         rows="3"
         value={fields.bgdetail}
         onChange={(e) => onChange({ ...fields, bgdetail: e.target.value })}
-        className={cn(!fields.bgdetail.trim() && "border-destructive")}
+        className={cn(
+          isRequiredFieldMissing("breakdown", "bgdetail", fields) && "border-destructive"
+        )}
       />
     </div>
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Breakdown Date</label>
+      <label htmlFor={`breakdown-bgdate-${index}`} className="text-sm font-medium">
+        Breakdown Date
+      </label>
       <Input
+        id={`breakdown-bgdate-${index}`}
         type="date"
         value={fields.bgdate ?? ""}
         onChange={(e) => onChange({ ...fields, bgdate: e.target.value || null })}
@@ -54,26 +72,37 @@ const BreakdownCard = ({ fields, onChange }) => (
   </div>
 );
 
-const MachineDetailsCard = ({ fields, onChange }) => (
+const MachineDetailsCard = ({ fields, onChange, index }) => (
   <div className="grid gap-3">
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Machine No</label>
+      <label htmlFor={`machine-no-${index}`} className="text-sm font-medium">
+        Machine No
+      </label>
       <Input
+        id={`machine-no-${index}`}
         value={fields.machine_no}
         onChange={(e) => onChange({ ...fields, machine_no: e.target.value })}
-        className={cn(!fields.machine_no.trim() && "border-destructive")}
+        className={cn(
+          isRequiredFieldMissing("machine_details", "machine_no", fields) && "border-destructive"
+        )}
       />
     </div>
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Machine Name</label>
+      <label htmlFor={`machine-name-${index}`} className="text-sm font-medium">
+        Machine Name
+      </label>
       <Input
+        id={`machine-name-${index}`}
         value={fields.machine_name}
         onChange={(e) => onChange({ ...fields, machine_name: e.target.value })}
       />
     </div>
     <div className="grid gap-1">
-      <label className="text-sm font-medium">Location</label>
+      <label htmlFor={`machine-location-${index}`} className="text-sm font-medium">
+        Location
+      </label>
       <Input
+        id={`machine-location-${index}`}
         value={fields.location}
         onChange={(e) => onChange({ ...fields, location: e.target.value })}
       />
@@ -110,6 +139,9 @@ const AIAgent = () => {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
+  const [savingIndices, setSavingIndices] = useState(() => new Set());
+
+  const isSaving = (index) => savingIndices.has(index);
 
   const append = (entry) => setMessages((prev) => [...prev, entry]);
 
@@ -149,6 +181,9 @@ const AIAgent = () => {
   };
 
   const handleSave = async (index, interpretation) => {
+    if (isSaving(index)) return;
+    setSavingIndices((prev) => new Set(prev).add(index));
+
     const { path, payload } = buildSavePayload(interpretation);
     const promise = axios.post(`${import.meta.env.VITE_API_URL}${path}`, payload);
 
@@ -163,6 +198,12 @@ const AIAgent = () => {
       resolveCard(index, "Saved to the database.");
     } catch (error) {
       console.error("Agent save failed:", error);
+    } finally {
+      setSavingIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
     }
   };
 
@@ -195,22 +236,25 @@ const AIAgent = () => {
                     <BreakdownCard
                       fields={m.interpretation.fields}
                       onChange={(fields) => updateCard(i, fields)}
+                      index={i}
                     />
                   ) : (
                     <MachineDetailsCard
                       fields={m.interpretation.fields}
                       onChange={(fields) => updateCard(i, fields)}
+                      index={i}
                     />
                   )}
                   <div className="flex gap-2 justify-end">
                     <Button
                       variant="ghost"
+                      disabled={isSaving(i)}
                       onClick={() => resolveCard(i, "Discarded — nothing was saved.")}
                     >
                       Discard
                     </Button>
                     <Button
-                      disabled={!canSave(m.interpretation)}
+                      disabled={!canSave(m.interpretation) || isSaving(i)}
                       onClick={() => handleSave(i, m.interpretation)}
                     >
                       Confirm &amp; Save
@@ -233,7 +277,7 @@ const AIAgent = () => {
               placeholder="Describe what happened..."
               disabled={pending}
             />
-            <Button type="submit" disabled={pending || !draft.trim()}>
+            <Button type="submit" disabled={pending || !draft.trim()} aria-label="Send message">
               <Send className="h-4 w-4" />
             </Button>
           </form>
