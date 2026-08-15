@@ -32,7 +32,8 @@ export const buildUpdateRequest = (record, changes) => {
   const source = changes && typeof changes === "object" ? changes : {};
   const payload = {};
   for (const field of ["breakdown", "bgdate", "machine_no"]) {
-    if (typeof source[field] === "string") payload[field] = source[field];
+    if (typeof source[field] !== "string") continue;
+    payload[field] = field === "bgdate" ? formatRecordDate(source[field]) : source[field];
   }
   if (!id || Object.keys(payload).length === 0) return null;
   return { path: `${EDIT_BASE}/${id}`, payload };
@@ -50,7 +51,7 @@ export const diffFields = (record, changes) => {
   for (const field of ["breakdown", "bgdate", "machine_no"]) {
     if (typeof source[field] !== "string") continue;
     const before = field === "bgdate" ? formatRecordDate(record[field]) : record[field] ?? "";
-    const after = source[field];
+    const after = field === "bgdate" ? formatRecordDate(source[field]) : source[field];
     if (before === after) continue;
     rows.push({ field, label: FIELD_LABELS[field], before, after });
   }
@@ -62,7 +63,7 @@ export const canConfirmProposal = (proposal) => {
   if (!recordId(proposal.record)) return false;
   if (proposal.kind === "propose_delete") return true;
   if (proposal.kind === "propose_update") {
-    return buildUpdateRequest(proposal.record, proposal.changes) !== null;
+    return diffFields(proposal.record, proposal.changes).length > 0;
   }
   return false;
 };

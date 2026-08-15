@@ -34,6 +34,13 @@ describe("buildUpdateRequest", () => {
     expect(buildUpdateRequest(null, null)).toBeNull();
     expect(buildUpdateRequest(undefined, undefined)).toBeNull();
   });
+
+  it("normalises a full ISO bgdate timestamp to a plain date in the payload", () => {
+    expect(buildUpdateRequest(RECORD, { bgdate: "2026-08-12T10:30:00.000Z" })).toEqual({
+      path: "/api/editdata/aaaaaaaaaaaaaaaaaaaaaaaa",
+      payload: { bgdate: "2026-08-12" },
+    });
+  });
 });
 
 describe("buildDeleteRequest", () => {
@@ -69,6 +76,16 @@ describe("diffFields", () => {
   it("returns an empty list rather than throwing on bad input", () => {
     expect(diffFields(null, null)).toEqual([]);
   });
+
+  it("normalises a full ISO 'after' timestamp before comparing, so an unchanged date produces no row", () => {
+    expect(diffFields(RECORD, { bgdate: "2026-08-15T00:00:00.000Z" })).toEqual([]);
+  });
+
+  it("normalises a full ISO 'after' timestamp to a plain date when the date genuinely changed", () => {
+    expect(diffFields(RECORD, { bgdate: "2026-08-12T10:30:00.000Z" })).toEqual([
+      { field: "bgdate", label: "Date", before: "2026-08-15", after: "2026-08-12" },
+    ]);
+  });
 });
 
 describe("formatRecordDate", () => {
@@ -99,6 +116,22 @@ describe("canConfirmProposal", () => {
 
   it("blocks an update proposal that changes nothing", () => {
     expect(canConfirmProposal({ kind: "propose_update", record: RECORD, changes: {} })).toBe(false);
+  });
+
+  it("blocks an update proposal whose changes equal the stored values", () => {
+    expect(
+      canConfirmProposal({ kind: "propose_update", record: RECORD, changes: { breakdown: RECORD.breakdown } })
+    ).toBe(false);
+  });
+
+  it("allows an update proposal where one field differs and another matches the stored value", () => {
+    expect(
+      canConfirmProposal({
+        kind: "propose_update",
+        record: RECORD,
+        changes: { breakdown: RECORD.breakdown, machine_no: "999" },
+      })
+    ).toBe(true);
   });
 
   it("blocks a proposal with no record id", () => {
